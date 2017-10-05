@@ -27,3 +27,4 @@ examples/parity_kov/cache
 examples/parity_kov/chains
 examples/parity_kov/dapps
 examples/parity_kov/network
+jsTests/node_modules/
