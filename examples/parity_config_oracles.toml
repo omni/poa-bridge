@@ -3,11 +3,11 @@ chain = "examples/parity_spec_oracles.json"
 base_path = "./examples/parity_ora"
 
 [account]
-unlock = ["0xDd0BB0e2a1594240fED0c2f2c17C1E9AB4F87126"]
+unlock = ["0x7058681adfb80341ddf3b009e3f55fee6b6e226e"]
 password = ["examples/parity_password_oracles"]
 
 [mining]
-engine_signer = "0xDd0BB0e2a1594240fED0c2f2c17C1E9AB4F87126"
+engine_signer = "0x7058681adfb80341ddf3b009e3f55fee6b6e226e"
 reseal_on_txs = "all"
 usd_per_tx = "0"
 reseal_min_period = 0

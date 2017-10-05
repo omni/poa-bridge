@@ -3,7 +3,7 @@ chain = "kovan"
 base_path = "./examples/parity_kov"
 
 [account]
-unlock = ["0x005364854d51A0A12cb3cb9A402ef8b30702a565"]
+unlock = ["0xe83fdc372e6c5c0bc1500b42282c035b994d8b78"]
 password = ["examples/parity_password_kovan"]
 
 [network]
@@ -16,7 +16,7 @@ port = 8555
 port = 8556
 
 [mining]
-engine_signer = "0x005364854d51A0A12cb3cb9A402ef8b30702a565"
+engine_signer = "0xe83fdc372e6c5c0bc1500b42282c035b994d8b78"
 reseal_on_txs = "all"
 usd_per_tx = "0"
 reseal_min_period = 0

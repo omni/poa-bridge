@@ -19,5 +19,5 @@
 # truffle stuff
 truffle/build
 
-examples/parity_ora
-examples/parity_kov
+examples/parity_ora/chains
+examples/parity_kov/chains
