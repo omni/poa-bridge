@@ -28,3 +28,5 @@ examples/parity_kov/chains
 examples/parity_kov/dapps
 examples/parity_kov/network
 jsTests/node_modules/
+examples/db.toml
+jsTests/package-lock.json
