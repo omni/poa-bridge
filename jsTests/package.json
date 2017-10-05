@@ -1,0 +1,15 @@
+{
+  "name": "bridge jstests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "investWithBridge.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node investWithBridge"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "web3": "^0.19.1"
+  }
+}
