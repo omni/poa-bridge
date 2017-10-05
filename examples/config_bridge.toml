@@ -1,5 +1,5 @@
 [mainnet]
-account = "0x7058681adfb80341ddf3b009e3f55fee6b6e226e"
+account = "0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8"
 ipc = "./examples/parity_ora/jsonrpc.ipc"
 required_confirmations = 0
 
