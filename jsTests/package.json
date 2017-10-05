@@ -1,5 +1,5 @@
 {
-  "name": "bridge jstests",
+  "name": "bridge_jstests",
   "version": "1.0.0",
   "description": "",
   "main": "investWithBridge.js",
