@@ -27,6 +27,8 @@ examples/parity_kov/cache
 examples/parity_kov/chains
 examples/parity_kov/dapps
 examples/parity_kov/network
+examples/parity_kov/keys/kovan/dapps_history.json
+examples/parity_ora/keys/OraclesPoA/dapps_history.json
 jsTests/node_modules/
 examples/db.toml
 jsTests/package-lock.json

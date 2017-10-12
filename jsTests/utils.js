@@ -2,24 +2,19 @@ let fs = require("fs");
 let Web3 = require("web3");
 
 function attachToContract(side, cb) {
-	var config = getConfig();
 	configureWeb3(function(err, web3, config, defaultAccount) {
-		if (err) return console.log(err);
-
-		var contractABI = config.contract[side].abi;
-		var contractAddress = config.contract[side].addr;
-
-		if(!web3.isConnected()) {
-			if (cb) cb({code: 200, title: "Error", message: "check RPC"}, null);
-		} else {
-			web3.eth.defaultAccount = defaultAccount;
+	  web3.eth.getAccounts().then((accounts) => {
+	    web3.eth.defaultAccount = accounts[0];
+	    	var abi = config.contract[side].abi;
+			var addr = config.contract[side].addr;
+			console.log("web3.eth.defaultAccount:" + web3.eth.defaultAccount);
 			
-			var MyContract = web3.eth.contract(contractABI);
-
-			contract = MyContract.at(contractAddress);
+			let contractInstance = new web3.eth.Contract(abi, addr, {
+		      from: web3.eth.defaultAccount
+		    });
 			
-			if (cb) cb(null, contract, config, web3);
-		}
+			if (cb) cb(null, contractInstance, web3);
+	  });
 	});
 }
 
@@ -36,18 +31,13 @@ function configureWeb3(cb) {
 	} else {
 	  web3 = new Web3(new Web3.providers.HttpProvider(config.rpc));
 	}
-	if(!web3.isConnected()) {
-		var err = '{code: 500, title: "Error", message: "check RPC"}';
-		cb(err, web3, config);
-	} else {
-		//console.log(web3.eth.accounts);
-		
-		web3.eth.defaultAccount = config.account;
-		var defaultAccount = web3.eth.defaultAccount;
-		//console.log("web3.eth.defaultAccount:");
-		//console.log(web3.eth.defaultAccount);
-		cb(null, web3, config, defaultAccount);
-	}
+	//console.log(web3.eth.accounts);
+	
+	web3.eth.defaultAccount = config.account;
+	var defaultAccount = web3.eth.defaultAccount;
+	//console.log("web3.eth.defaultAccount:");
+	//console.log(web3.eth.defaultAccount);
+	cb(null, web3, config, defaultAccount);
 }
 
 function getTxReceipt(txhash) {
@@ -76,11 +66,20 @@ function getBalance(addr) {
 	});
 }
 
+function checkTxMined(web3, txhash, cb) {
+  web3.eth.getTransactionReceipt(txhash, function(err, receipt) {
+    if (receipt)
+      console.log(receipt);
+    cb(receipt);
+  });
+}
+
 module.exports = {
 	attachToContract: attachToContract,
 	getConfig: getConfig,
 	configureWeb3: configureWeb3,
 	getTxReceipt: getTxReceipt,
 	getTxData: getTxData,
-	getBalance: getBalance
+	getBalance: getBalance,
+	checkTxMined: checkTxMined
 }
