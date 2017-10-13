@@ -1,7 +1,7 @@
 # AlphaTestTestNet branch
 [parity]
 chain = "spec.json"
-base_path = "parity"
+base_path = "./examples/parity_ora"
 [network]
 nat="extip:195.178.109.65"
 bootnodes=["enode://886bc3f5f6f6258a89febdf31c71514e27b3647151e96e16bd4bdf6328884b3e8d41bcfb64095496e3701142c4b1f0e6047781d353674b61a45b023845ea742a@40.117.197.50:30300"]
