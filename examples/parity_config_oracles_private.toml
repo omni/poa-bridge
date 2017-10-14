@@ -1,10 +1,17 @@
 [parity]
-chain = "examples/parity_spec_oracles.json"
+chain = "examples/parity_spec_oracles_private.json"
 base_path = "./examples/parity_ora"
 
 [account]
 unlock = ["0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8"]
 password = ["examples/parity_password_oracles_private"]
+
+[rpc]
+cors = "all"
+interface = "all"
+hosts = ["all"]
+port = 8545
+apis = ["web3", "eth", "net", "personal", "parity", "parity_set", "traces", "rpc", "parity_accounts"]
 
 [mining]
 engine_signer = "0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8"

@@ -1,6 +1,6 @@
 # AlphaTestTestNet branch
 [parity]
-chain = "spec.json"
+chain = "parity_spec_oracles.json"
 base_path = "./examples/parity_ora"
 [network]
 nat="extip:195.178.109.65"
@@ -28,3 +28,6 @@ cors = "all"
 interface = "0.0.0.0"
 hosts = ["all"]
 port = 8080
+[account]
+unlock = ["0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8"]
+password = ["examples/parity_password_oracles_private"]
