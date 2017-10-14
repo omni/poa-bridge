@@ -1,7 +1,7 @@
 let utils = require("./utils");
 
 let investorAddr = "0xDd0BB0e2a1594240fED0c2f2c17C1E9AB4F87126"
-let txHash = "0xf1488e49928916f7c34d231aa64fbc64f4bb79f45b3197330a514b8051746367"
+let txHash = "0xc7f77a849a89bf8f7d18fd56d00a99c5463f3d15851075e2573a9dc98f92e493"
 
 //check that contract is created correctly: should return values
 getAuthorities("left");
@@ -9,8 +9,8 @@ getRequiredSignatures("left");
 //getAuthorities("right");
 //getRequiredSignatures("right");
 
-//utils.getTxReceipt(txHash);
-//utils.getTxData(txHash);
+utils.getTxReceipt(txHash);
+utils.getTxData(txHash);
 
 let config = utils.getConfig();
 //getTokenBalanceOf(investorAddr);

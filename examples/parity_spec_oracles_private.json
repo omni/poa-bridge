@@ -7,7 +7,7 @@
         "stepDuration": "5",
         "blockReward": "0xDE0B6B3A7640000",
         "validators": {
-          "list": ["0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8"]
+          "list": ["0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"]
         }
       }
     }
@@ -77,10 +77,7 @@
         }
       }
     },
-    "0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8": {
-      "balance": "10000000000000000000000"
-    },
-    "0x00dB9af45C6f241432F2cBE412c6969cB7778d98": {
+    "0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb": {
       "balance": "10000000000000000000000"
     }
   }

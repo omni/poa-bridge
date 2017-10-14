@@ -1,6 +1,6 @@
 # AlphaTestTestNet branch
 [parity]
-chain = "parity_spec_oracles.json"
+chain = "examples/parity_spec_oracles.json"
 base_path = "./examples/parity_ora"
 [network]
 nat="extip:195.178.109.65"
