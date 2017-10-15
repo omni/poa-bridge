@@ -1,0 +1,22 @@
+[parity]
+chain = "mainnet"
+base_path = "./examples/parity_main"
+
+[account]
+unlock = ["0x7ae09e9963c835959b06240ba69b00febdff681a"]
+password = ["examples/parity_password_kovan"]
+
+[network]
+port = 30305
+
+[rpc]
+port = 8547
+
+[websockets]
+port = 8548
+
+[mining]
+engine_signer = "0x7ae09e9963c835959b06240ba69b00febdff681a"
+reseal_on_txs = "all"
+usd_per_tx = "0"
+reseal_min_period = 0
