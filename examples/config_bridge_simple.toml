@@ -2,7 +2,7 @@
 account = "0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"
 ipc = "./examples/parity_POA_simple/jsonrpc.ipc"
 required_confirmations = 0
-request_timeout = 120
+request_timeout = 360
 
 [mainnet.contract]
 bin = "contracts/EthereumBridge.bin"
@@ -11,7 +11,7 @@ bin = "contracts/EthereumBridge.bin"
 account = "0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
 ipc = "./examples/parity_kov/jsonrpc.ipc"
 required_confirmations = 0
-request_timeout = 120
+request_timeout = 360
 
 [testnet.contract]
 bin = "contracts/KovanBridge.bin"
@@ -23,6 +23,6 @@ accounts = [
 required_signatures = 1
 
 [transactions]
-mainnet_deploy = { gas = 1000000, gas_price = 21000000000 }
+mainnet_deploy = { gas = 3000000, gas_price = 21000000000 }
 testnet_deploy = { gas = 3000000, gas_price = 21000000000 }
 deposit_relay = { gas = 100000 }
