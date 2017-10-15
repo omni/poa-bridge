@@ -3,18 +3,16 @@ let Web3 = require("web3");
 
 function attachToContract(side, cb) {
 	configureWeb3(function(err, web3, config, defaultAccount) {
-	  web3.eth.getAccounts().then((accounts) => {
-	    web3.eth.defaultAccount = accounts[0];
-	    	var abi = config.contract[side].abi;
-			var addr = config.contract[side].addr;
-			console.log("web3.eth.defaultAccount:" + web3.eth.defaultAccount);
-			
-			let contractInstance = new web3.eth.Contract(abi, addr, {
-		      from: web3.eth.defaultAccount
-		    });
-			
-			if (cb) cb(null, contractInstance, web3);
-	  });
+	    web3.eth.defaultAccount = config.account;
+    	var abi = config.contract[side].abi;
+		var addr = config.contract[side].addr;
+		console.log("web3.eth.defaultAccount:" + web3.eth.defaultAccount);
+		
+		let contractInstance = new web3.eth.Contract(abi, addr, {
+	      from: web3.eth.defaultAccount
+	    });
+		
+		if (cb) cb(null, contractInstance, web3);
 	});
 }
 
