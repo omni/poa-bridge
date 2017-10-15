@@ -6,6 +6,13 @@ base_path = "./examples/parity_POA_simple"
 unlock = ["0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"]
 password = ["examples/parity_password_oracles_private"]
 
+[rpc]
+cors = "all"
+interface = "all"
+hosts = ["all"]
+port = 8545
+apis = ["web3", "eth", "net", "personal", "parity", "parity_set", "traces", "rpc", "parity_accounts"]
+
 [mining]
 engine_signer = "0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"
 reseal_on_txs = "all"
