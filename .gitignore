@@ -27,6 +27,10 @@ examples/parity_POA_simple/cache
 examples/parity_POA_simple/chains
 examples/parity_POA_simple/dapps
 examples/parity_POA_simple/network
+examples/parity_POA_2_simple/cache
+examples/parity_POA_2_simple/chains
+examples/parity_POA_2_simple/dapps
+examples/parity_POA_2_simple/network
 examples/parity_kov/cache
 examples/parity_kov/chains
 examples/parity_kov/dapps

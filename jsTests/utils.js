@@ -59,8 +59,9 @@ function getTxData(txhash) {
 function getBalance(addr) {
 	var config = getConfig();
 	configureWeb3(function(err, web3, config, defaultAccount) {
-		let balance = web3.eth.getBalance(addr)
-		console.log("balance: " + balance)
+		let balance = web3.eth.getBalance(addr).then(function(err, balance) {
+			console.log("balance: " + balance)
+		})
 	});
 }
 
