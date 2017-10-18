@@ -1,7 +1,0 @@
-mainnet_contract_address = ""
-testnet_contract_address = ""
-mainnet_deploy = 22
-testnet_deploy = 4148899
-checked_deposit_relay = 68
-checked_withdraw_relay = 4268250
-checked_withdraw_confirm = 4268250

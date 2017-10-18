@@ -5,7 +5,7 @@ required_confirmations = 0
 request_timeout = 360
 
 [home.contract]
-bin = "contracts/EthereumBridge.bin"
+bin = "contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
@@ -14,7 +14,7 @@ required_confirmations = 0
 request_timeout = 360
 
 [foreign.contract]
-bin = "contracts/KovanBridge.bin"
+bin = "contracts/ForeignBridge.bin"
 
 [authorities]
 accounts = [
