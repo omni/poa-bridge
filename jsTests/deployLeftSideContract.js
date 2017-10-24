@@ -8,16 +8,19 @@ let web3;
 if (typeof web3 !== 'undefined') {
   web3 = new Web3(web3.currentProvider);
 } else {
-  web3 = new Web3(new Web3.providers.HttpProvider(config.rpc));
+  web3 = new Web3(new Web3.providers.HttpProvider(config.rpc.left));
 }
 
-let contractABI = config.contract.left.abi;
-let compiled = config.contract.left.bin;
+var homeBridgeBin = "0x" + fs.readFileSync('../contracts/HomeBridge.bin').toString('utf8');
+var homeBridgeABI = JSON.parse(fs.readFileSync('../contracts/HomeBridge.abi').toString('utf8'));
+
+let contractABI = homeBridgeABI;
+let compiled = homeBridgeBin;
 
 deployContract();
 
 function deployContract() {
-	let from = "0x00a6F6A140a3E2991c555dCCb36B4FBa7A46b0D8";
+	let from = "0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb";
 	let estimatedGas = 2000000;
 	let gasPrice = 21000000000;
 	let params = [
