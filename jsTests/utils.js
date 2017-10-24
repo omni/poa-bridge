@@ -59,17 +59,16 @@ function configureWeb3(side, cb) {
 	cb(null, web3, config, defaultAccount);
 }
 
-function getTxReceipt(side, txhash) {
-	console.log("***getTxReceipt***");
+function getTxReceipt(side, txhash, cb) {
 	configureWeb3(side, function(err, web3, config, defaultAccount) {
 		web3.eth.getTransactionReceipt(txhash, function(err, val) {
-			console.log(val);
+			if (!cb) console.log(val);
+			if (cb) cb(val);
 		});
 	});
 }
 
 function getTxData(side, txhash) {
-	console.log("***getTxData***");
 	configureWeb3(side, function(err, web3, config, defaultAccount) {
 		web3.eth.getTransaction(txhash, function(err, val) {
 			console.log(val);
@@ -94,12 +93,90 @@ function checkTxMined(web3, txhash, cb) {
   });
 }
 
+function getAuthorities(side) {
+	attachToContract(side, function(err, contract, web3) {
+		contract.methods.authorities(0).call({from: web3.eth.defaultAccount}).then(function(result) {
+			console.log("getAuthorities from " + side + ":");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function getBlockData(side, blokNumber, cb) {
+	configureWeb3(side, function(err, web3, config, defaultAccount) {
+		web3.eth.getBlock(blokNumber).then(
+			function(res) {
+				if (!cb) console.log(res)
+				if (cb) cb(res)
+			}
+		);
+	});
+}
+
+function getRequiredSignatures(side) {
+	attachToContract(side, function(err, contract, web3) {
+		contract.methods.requiredSignatures().call({from: web3.eth.defaultAccount}).then(function(result) {
+			console.log("getRequiredSignatures from " + side + ":");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function getTokenBalanceOf(addr) {
+	attachToContract("right", function(err, contract, web3) {
+		contract.methods.balances(addr).call({from: web3.eth.defaultAccount}).then(function(result) {
+			console.log("getTokenBalanceOf from right:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function buyFromWizard(addr) {
+	attachToContract("left", function(err, contract, web3) {
+		contract.methods.buy().send({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr}).then(function(err, result) {
+			console.log("buy from left:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function buyFromBridge(addr) {
+	attachToContract("left", function(err, contract, web3) {
+		web3.eth.sendTransaction({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr, to: db.home_contract_address}).then(function(err, result) {
+			console.log("buy from left:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function getDeposits(hash) {
+	attachToContract("right", function(err, contract, config, web3) {
+		contract.methods.deposits(hash).call({from: web3.eth.defaultAccount}, function(result) {
+			console.log("getBalances from right:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
 module.exports = {
-	attachToContract: attachToContract,
-	getConfig: getConfig,
-	configureWeb3: configureWeb3,
-	getTxReceipt: getTxReceipt,
-	getTxData: getTxData,
-	getBalance: getBalance,
-	checkTxMined: checkTxMined
+	attachToContract,
+	getConfig,
+	configureWeb3,
+	getTxReceipt,
+	getTxData,
+	getBalance,
+	checkTxMined,
+	getAuthorities,
+	getBlockData,
+	getRequiredSignatures,
+	getTokenBalanceOf,
+	buyFromWizard,
+	buyFromBridge,
+	getDeposits
 }
