@@ -1,0 +1,33 @@
+# Sokol branch
+[parity]
+chain = "examples/parity_spec_oracles.json"
+base_path = "./examples/parity_ora"
+[network]
+nat="extip:194.186.171.38"
+bootnodes=["enode://0dd86aa673cc8fbd1ed27e3ca3c62058a6923410aed28efa643435a8a8d1ef75acb9eeb13bc9d6b78b924f1abd4a024ec0f2f586d77e88881b8be02c124b0376@13.92.254.182:30300"]
+port = 30300
+discovery=true
+[rpc]
+cors = "all"
+interface = "all"
+hosts = ["all"]
+port = 8545
+apis = ["web3", "eth", "net", "personal", "parity", "parity_set", "traces", "rpc", "parity_accounts"]
+[ui]
+interface = "0.0.0.0"
+port = 8180
+[websockets]
+disable = false
+port = 8546
+interface = "all"
+origins = ["all"]
+apis = ["web3", "eth", "net", "parity", "traces", "rpc", "secretstore"]
+hosts = ["all"]
+[dapps]
+cors = "all"
+interface = "0.0.0.0"
+hosts = ["all"]
+port = 8080
+#[misc]
+#logging="poa=trace,signer=trace,engine=trace,own_tx=trace,txqueue=trace,sync=trace"
+#color = true
