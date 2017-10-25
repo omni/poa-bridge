@@ -2,28 +2,35 @@ let fs = require("fs")
 let Web3 = require("web3")
 let toml = require("toml")
 
-function attachToContract(side, cb) {
+function attachToContract(side, cb, _ABI, _addr) {
 	configureWeb3(side, function(err, web3, config, defaultAccount) {
 	    web3.eth.defaultAccount = config.account;
 
-	    var dbtoml = fs.readFileSync('../examples/db.toml').toString('utf8');
-	    var db = toml.parse(dbtoml);
-
-	    var homeBridgeBin = "0x" + fs.readFileSync('../contracts/HomeBridge.bin').toString('utf8');
-	    var homeBridgeABI = JSON.parse(fs.readFileSync('../contracts/HomeBridge.abi').toString('utf8'));
-
-	    var foreignBridgeBin = "0x" + fs.readFileSync('../contracts/ForeignBridge.bin').toString('utf8');
-	    var foreignBridgeABI = JSON.parse(fs.readFileSync('../contracts/ForeignBridge.abi').toString('utf8'));
-
 	    var abi;
 		var addr;
-	    if (side == "left") {
-	    	abi = homeBridgeABI;
-			addr = db.home_contract_address;
-	    } else if (side == "right") {
-	    	abi = foreignBridgeABI;
-			addr = db.foreign_contract_address;
-	    }
+
+
+		if (!_ABI && !_addr) {
+			var dbtoml = fs.readFileSync('../examples/db.toml').toString('utf8');
+		    var db = toml.parse(dbtoml);
+
+		    //var homeBridgeBin = "0x" + fs.readFileSync('../contracts/HomeBridge.bin').toString('utf8');
+		    var homeBridgeABI = JSON.parse(fs.readFileSync('../contracts/HomeBridge.abi').toString('utf8'));
+
+		    //var foreignBridgeBin = "0x" + fs.readFileSync('../contracts/ForeignBridge.bin').toString('utf8');
+		    var foreignBridgeABI = JSON.parse(fs.readFileSync('../contracts/ForeignBridge.abi').toString('utf8'));
+
+		    if (side == "left") {
+		    	abi = homeBridgeABI;
+				addr = db.home_contract_address;
+		    } else if (side == "right") {
+		    	abi = foreignBridgeABI;
+				addr = db.foreign_contract_address;
+		    }
+		} else {
+			abi = _ABI
+			addr = _addr
+		}
 
     	//var abi = config.contract[side].abi;
 		//var addr = config.contract[side].addr;
@@ -134,6 +141,16 @@ function getTokenBalanceOf(addr) {
 	});
 }
 
+function getERC20TokenBalanceOf(addr, _ABI, _addr) {
+	attachToContract("right", function(err, contract, web3) {
+		contract.methods.balanceOf(addr).call({from: web3.eth.defaultAccount}).then(function(result) {
+			console.log("getTokenBalanceOf from right:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	}, _ABI, _addr);
+}
+
 function buyFromWizard(addr) {
 	attachToContract("left", function(err, contract, web3) {
 		contract.methods.buy().send({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr}).then(function(err, result) {
@@ -148,6 +165,16 @@ function buyFromBridge(addr) {
 	attachToContract("left", function(err, contract, web3) {
 		web3.eth.sendTransaction({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr, to: db.home_contract_address}).then(function(err, result) {
 			console.log("buy from left:");
+			if (err) console.log(err);
+			console.log("result: " + result);
+		});
+	});
+}
+
+function sendTX(side, from, to) {
+	configureWeb3(side, function(err, web3, config, defaultAccount) {
+		web3.eth.sendTransaction({from: from, value: 1000000000000000, to: to}).then(function(err, result) {
+			console.log("sendTX:");
 			if (err) console.log(err);
 			console.log("result: " + result);
 		});
@@ -176,7 +203,9 @@ module.exports = {
 	getBlockData,
 	getRequiredSignatures,
 	getTokenBalanceOf,
+	getERC20TokenBalanceOf,
 	buyFromWizard,
 	buyFromBridge,
-	getDeposits
+	getDeposits,
+	sendTX
 }

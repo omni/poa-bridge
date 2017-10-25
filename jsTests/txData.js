@@ -1,6 +1,6 @@
 let utils = require("./utils");
 
-let txHash = "0x2a7d607300016547e4be03b06a4b354d0ff9209af51b0933a0bfa9a3fac61a1b"
+let txHash = "0xa02e8044fc333af4642814ca96342753aec371cbaa059401acd6e5d7f5a8b552"
 
 utils.getTxReceipt("right", txHash);
-utils.getTxData("left", txHash);
+utils.getTxData("right", txHash);

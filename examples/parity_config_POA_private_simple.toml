@@ -4,7 +4,7 @@ base_path = "./examples/parity_POA_simple"
 
 [account]
 unlock = ["0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"]
-password = ["examples/parity_password_oracles_private"]
+password = ["examples/parity_password_POA_private"]
 
 [rpc]
 cors = "all"
