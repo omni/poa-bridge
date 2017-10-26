@@ -2,7 +2,7 @@ let utils = require("./utils");
 let fs = require("fs")
 let toml = require("toml")
 
-let investorAddr = "0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
+let investorAddr = process.argv[2]||"0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
 
 //check that contract is created correctly: should return values
 utils.getAuthorities("right");

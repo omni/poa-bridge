@@ -144,7 +144,7 @@ function getTokenBalanceOf(addr) {
 function getERC20TokenBalanceOf(addr, _ABI, _addr) {
 	attachToContract("right", function(err, contract, web3) {
 		contract.methods.balanceOf(addr).call({from: web3.eth.defaultAccount}).then(function(result) {
-			console.log("getTokenBalanceOf from right:");
+			console.log("getTokenBalance of " + addr + " from the right side:");
 			if (err) console.log(err);
 			console.log("result: " + result);
 		});

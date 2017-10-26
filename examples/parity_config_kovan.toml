@@ -1,6 +1,7 @@
 [parity]
 chain = "kovan"
 base_path = "./examples/parity_kov"
+no_persistent_txqueue = true
 
 [account]
 unlock = ["0x00dB9af45C6f241432F2cBE412c6969cB7778d98"]
@@ -21,5 +22,6 @@ port = 8556
 #usd_per_tx = "0"
 #reseal_min_period = 0
 
-#[misc]
+[misc]
 #logging="poa=trace,signer=trace,engine=trace,own_tx=trace,txqueue=trace,sync=trace"
+logging="poa=trace,signer=trace,engine=trace,own_tx=trace,txqueue=trace"

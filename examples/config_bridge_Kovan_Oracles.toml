@@ -25,4 +25,4 @@ required_signatures = 1
 [transactions]
 home_deploy = { gas = 3000000, gas_price = 21000000000 }
 foreign_deploy = { gas = 3000000, gas_price = 21000000000 }
-deposit_relay = { gas = 200000 }
+deposit_relay = { gas = 200000, gas_price = 21000000000 }
