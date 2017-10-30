@@ -19,6 +19,7 @@
 # truffle stuff
 truffle/build
 
+examples/parity_ora/signer
 examples/parity_ora/cache
 examples/parity_ora/chains
 examples/parity_ora/dapps
@@ -36,6 +37,9 @@ examples/parity_kov/chains
 examples/parity_kov/dapps
 examples/parity_kov/network
 examples/parity_kov/keys/kovan/dapps_history.json
+examples/parity_kov/keys/kovan/address_book.json
+examples/parity_ora/keys/OraclesPoA/dapps_history.json
+examples/parity_ora/keys/OraclesPoA/address_book.json
 examples/parity_ora/keys/OraclesPoA/dapps_history.json
 examples/parity_ora/keys/OraclesPoA/address_book.json
 examples/parity_POA_2_simple/keys/BridgeExample2/dapps_history.json

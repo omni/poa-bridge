@@ -21,7 +21,7 @@ function attachToContract(side, cb, _ABI, _addr) {
 		    var foreignBridgeABI = JSON.parse(fs.readFileSync('../contracts/ForeignBridge.abi').toString('utf8'));
 
 		    if (side == "left") {
-		    	abi = homeBridgeABI;
+		    	abi = config.wizard.ABI;//homeBridgeABI;
 				addr = db.home_contract_address;
 		    } else if (side == "right") {
 		    	abi = foreignBridgeABI;
@@ -153,10 +153,10 @@ function getERC20TokenBalanceOf(addr, _ABI, _addr) {
 
 function buyFromWizard(addr) {
 	attachToContract("left", function(err, contract, web3) {
-		contract.methods.buy().send({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr}).then(function(err, result) {
-			console.log("buy from left:");
-			if (err) console.log(err);
-			console.log("result: " + result);
+		contract.methods.buy().send({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr, gasPrice: 21000000000}).then(function(result) {
+			console.log("buy from wizard:");
+			//console.log("result: " + result);
+			console.log("success buying");
 		});
 	});
 }
