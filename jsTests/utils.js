@@ -151,9 +151,9 @@ function getERC20TokenBalanceOf(addr, _ABI, _addr) {
 	}, _ABI, _addr);
 }
 
-function buyFromWizard(addr) {
+function buyFromWizard(addr, tokens) {
 	attachToContract("left", function(err, contract, web3) {
-		contract.methods.buy().send({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr, gasPrice: 21000000000}).then(function(result) {
+		contract.methods.buy().send({from: web3.eth.defaultAccount, value: tokens*1000000000000000, from: addr, gasPrice: 21000000000}).then(function(result) {
 			console.log("buy from wizard:");
 			//console.log("result: " + result);
 			console.log("success buying");
