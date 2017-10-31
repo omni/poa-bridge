@@ -2,17 +2,18 @@ let utils = require("./utils");
 let investorAddr = "0xDd0BB0e2a1594240fED0c2f2c17C1E9AB4F87126"
 
 //immediately
-/*
-for (var i = 0; i < 1000; i++) {
-	utils.buyFromWizard(investorAddr);
-}
-*/
+
+/*for (var i = 0; i < 200; i++) {
+	let tokens = 1;
+	utils.buyFromWizard(investorAddr, tokens);
+}*/
+
 
 let i = 0;
 let timer = setInterval(function() {
 	i++;
 	console.log(i);
-	if (i >= 100) clearInterval(timer)
+	if (i >= 500) clearInterval(timer)
 	buy();
 }, 1000)
 
