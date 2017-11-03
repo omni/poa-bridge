@@ -24,6 +24,11 @@ examples/parity_ora/cache
 examples/parity_ora/chains
 examples/parity_ora/dapps
 examples/parity_ora/network
+examples/parity_ora-2/signer
+examples/parity_ora-2/cache
+examples/parity_ora-2/chains
+examples/parity_ora-2/dapps
+examples/parity_ora-2/network
 examples/parity_POA/cache
 examples/parity_POA/chains
 examples/parity_POA/dapps
@@ -42,6 +47,8 @@ examples/parity_rop/keys/kovan/dapps_history.json
 examples/parity_rop/keys/kovan/address_book.json
 examples/parity_ora/keys/OraclesPoA/dapps_history.json
 examples/parity_ora/keys/OraclesPoA/address_book.json
+examples/parity_ora-2/keys/OraclesPoA/dapps_history.json
+examples/parity_ora-2/keys/OraclesPoA/address_book.json
 jsTests/node_modules/
 examples/db.toml
 jsTests/package-lock.json
