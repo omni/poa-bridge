@@ -1,5 +1,5 @@
 let utils = require("./utils");
-let investorAddr = "0xDd0BB0e2a1594240fED0c2f2c17C1E9AB4F87126"
+let investorAddr = "0x93C70B45d0e86e99A84dF0966Ac59DC71540c8d1"
 
 //immediately
 
