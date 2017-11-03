@@ -163,7 +163,7 @@ function buyFromWizard(addr, tokens) {
 
 function buyFromBridge(addr) {
 	attachToContract("left", function(err, contract, web3) {
-		web3.eth.sendTransaction({from: web3.eth.defaultAccount, value: 1000000000000000, from: addr, to: db.home_contract_address}).then(function(err, result) {
+		web3.eth.sendTransaction({value: 1000000000000000, from: addr, to: db.home_contract_address}).then(function(err, result) {
 			console.log("buy from left:");
 			if (err) console.log(err);
 			console.log("result: " + result);
