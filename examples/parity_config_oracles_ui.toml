@@ -6,7 +6,7 @@ base_path = "./examples/parity_ora"
 
 [network]
 nat="extip:194.186.171.38"
-bootnodes=["enode://0dd86aa673cc8fbd1ed27e3ca3c62058a6923410aed28efa643435a8a8d1ef75acb9eeb13bc9d6b78b924f1abd4a024ec0f2f586d77e88881b8be02c124b0376@13.92.254.182:30300"]
+reserved_peers="./examples/oracles_reserved_peers"
 port = 30300
 discovery=true
 

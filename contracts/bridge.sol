@@ -138,6 +138,12 @@ contract HomeBridge {
     }
 }
 
+contract ERC20 {
+    function transfer(address to, uint256 value) public returns (bool);
+    function transferFrom(address from, address to, uint256 value) public returns (bool);
+    function allowance(address owner, address spender) public constant returns (uint256);
+}
+
 contract ForeignBridge {
     using Authorities for address[];
 
@@ -158,12 +164,18 @@ contract ForeignBridge {
     /// Contract authorities.
     address[] public authorities;
 
-    /// Ether balances
-    mapping (address => uint) public balances;
-
     /// Pending deposits and authorities who confirmed them
     mapping (bytes32 => address[]) deposits;
 
+    /// List of authorities confirmed to set up ERC-20 token address
+    mapping (address => address[]) public token_address;
+    
+    /// Token to work with
+    ERC20 public erc20token;
+    
+    /// Event created on money deposit.
+    event TokenAddress(address token);
+    
     /// Pending signatures and authorities who confirmed them
     mapping (bytes32 => SignaturesCollection) signatures;
 
@@ -172,9 +184,6 @@ contract ForeignBridge {
 
     /// Event created on money withdraw.
     event Withdraw(address recipient, uint value);
-
-    /// Event created on money transfer
-    event Transfer(address from, address to, uint value);
 
     /// Collected signatures which should be relayed to home chain.
     event CollectedSignatures(address authority, bytes32 messageHash);
@@ -193,6 +202,21 @@ contract ForeignBridge {
         _;
     }
 
+    /// Set up the token address.
+    ///
+    /// token address (address)
+    function setTokenAddress (ERC20 token) public onlyAuthority() {
+        // Protect duplicated request
+        require(!token_address[token].contains(msg.sender));
+
+        token_address[token].push(msg.sender);
+        // TODO: this may cause troubles if requriedSignatures len is changed
+        if (token_address[token].length == requiredSignatures) {
+            erc20token = ERC20(token);
+            TokenAddress(token);
+        }
+    }
+
     /// Used to deposit money to the contract.
     ///
     /// deposit recipient (bytes20)
@@ -208,22 +232,16 @@ contract ForeignBridge {
         deposits[hash].push(msg.sender);
         // TODO: this may cause troubles if requriedSignatures len is changed
         if (deposits[hash].length == requiredSignatures) {
-            balances[recipient] += value;
+            erc20token.transfer(recipient, value);
             Deposit(recipient, value);
         }
     }
 
-    /// Used to transfer money between accounts
-    function transfer (address recipient, uint value, bool externalTransfer) {
-        require(balances[msg.sender] >= value);
-
-        balances[msg.sender] -= value;
-        if (externalTransfer) {
-            Withdraw(recipient, value);
-        } else {
-            balances[recipient] += value;
-            Transfer(msg.sender, recipient, value);
-        }
+    /// Withdraw money
+    function withdraw(address recipient, uint value) public {
+        require(erc20token.allowance(msg.sender, this) >= value); 
+        erc20token.transferFrom(msg.sender, this, value);
+        Withdraw(recipient, value);
     }
 
     /// Should be used as sync tool

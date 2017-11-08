@@ -20,6 +20,7 @@ apis = ["web3", "eth", "net", "personal", "parity", "parity_set", "traces", "rpc
 [ui]
 interface = "0.0.0.0"
 port = 8180
+
 [websockets]
 disable = false
 port = 8546
@@ -35,10 +36,10 @@ hosts = ["all"]
 port = 8080
 
 [account]
-unlock = ["0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"]
-password = ["examples/parity_password_POA_private"]
-#unlock = ["0xdd0bb0e2a1594240fed0c2f2c17c1e9ab4f87126"]
-#password = ["examples/parity_password_oracles"]
+#unlock = ["0xeaeba7869e23a328a0a92620bba1a7a6aaed26cb"]
+#password = ["examples/parity_password_POA_private"]
+unlock = ["0xdd0bb0e2a1594240fed0c2f2c17c1e9ab4f87126"]
+password = ["examples/parity_password_oracles"]
 
 #[mining]
 #engine_signer = "0xdd0bb0e2a1594240fed0c2f2c17c1e9ab4f87126"
