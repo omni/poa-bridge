@@ -1,5 +1,5 @@
 let utils = require("./utils");
-let investorAddr = "0xf36045454F66C7318adCDdF3B801E3bF8CfBc6a1"
+let investorAddr = "0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
 
 //immediately
 
@@ -13,7 +13,7 @@ let i = 0;
 let timer = setInterval(function() {
 	i++;
 	console.log(i);
-	if (i >= 15000) clearInterval(timer)
+	if (i >= 11000) clearInterval(timer)
 	buy();
 }, 500)
 
