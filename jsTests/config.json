@@ -1,7 +1,7 @@
 {
     "rpc": {
         "left": "http://localhost:8555",
-        "right": "http://localhost:8545"
+        "right": "http://40.71.90.152:8545"
     },
     "token": {
     	"addr": "0xB46970e4a4CfB9e16C460CcF0a6e77214EC610f4",

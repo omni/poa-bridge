@@ -1,5 +1,5 @@
 let utils = require("./utils");
-let investorAddr = "0x93C70B45d0e86e99A84dF0966Ac59DC71540c8d1"
+let investorAddr = "0xf36045454F66C7318adCDdF3B801E3bF8CfBc6a1"
 
 //immediately
 
@@ -13,13 +13,13 @@ let i = 0;
 let timer = setInterval(function() {
 	i++;
 	console.log(i);
-	if (i >= 500) clearInterval(timer)
+	if (i >= 15000) clearInterval(timer)
 	buy();
-}, 1000)
+}, 500)
 
 function buy () {
-	//let tokens = Math.floor(Math.random() * 10) + 1;
-	let tokens = 1;
+	let tokens = Math.floor(Math.random() * 100) + 1;
+	//let tokens = 1;
 	utils.buyFromWizard(investorAddr, tokens);
 }
 
