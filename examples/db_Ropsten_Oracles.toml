@@ -1,7 +1,7 @@
-home_contract_address = "0xf285E67E07536e1A78EBc2E3258ce8c3b30ea20d"
+home_contract_address = "0x98a7262b322b36f740F9310cb01BA76386fC9053"
 foreign_contract_address = "0x55ed683A5Af54B5c7bB62e2D9022b0D1Cb94F4c1"
-home_deploy = 2031211
+home_deploy = 2068519
 foreign_deploy = 258810
-checked_deposit_relay = 2031211
+checked_deposit_relay = 2068519
 checked_withdraw_relay = 258810
 checked_withdraw_confirm = 258810
