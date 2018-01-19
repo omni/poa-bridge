@@ -18,6 +18,7 @@ pub struct Config {
 	pub foreign: Node,
 	pub authorities: Authorities,
 	pub txs: Transactions,
+	pub estimated_gas_cost_of_withdraw: u32,
 }
 
 impl Config {
@@ -42,6 +43,7 @@ impl Config {
 				required_signatures: config.authorities.required_signatures,
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
+			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
 		};
 
 		Ok(result)
@@ -141,6 +143,7 @@ mod load {
 		pub foreign: Node,
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
+		pub estimated_gas_cost_of_withdraw: u32,
 	}
 
 	#[derive(Deserialize)]
@@ -194,6 +197,8 @@ mod tests {
 	#[test]
 	fn load_full_setup_from_str() {
 		let toml = r#"
+estimated_gas_cost_of_withdraw = 100000
+
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = "/home.ipc"
@@ -201,14 +206,14 @@ poll_interval = 2
 required_confirmations = 100
 
 [home.contract]
-bin = "../contracts/HomeBridge.bin"
+bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = "/foreign.ipc"
 
 [foreign.contract]
-bin = "../contracts/ForeignBridge.bin"
+bin = "../compiled_contracts/ForeignBridge.bin"
 
 [authorities]
 accounts = [
@@ -228,7 +233,7 @@ home_deploy = { gas = 20 }
 				account: "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b".parse().unwrap(),
 				ipc: "/home.ipc".into(),
 				contract: ContractConfig {
-					bin: include_str!("../../contracts/HomeBridge.bin").from_hex().unwrap().into(),
+					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(5),
@@ -237,7 +242,7 @@ home_deploy = { gas = 20 }
 			foreign: Node {
 				account: "0x0000000000000000000000000000000000000001".parse().unwrap(),
 				contract: ContractConfig {
-					bin: include_str!("../../contracts/ForeignBridge.bin").from_hex().unwrap().into(),
+					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				ipc: "/foreign.ipc".into(),
 				poll_interval: Duration::from_secs(1),
@@ -251,7 +256,8 @@ home_deploy = { gas = 20 }
 					"0x0000000000000000000000000000000000000003".parse().unwrap(),
 				],
 				required_signatures: 2,
-			}
+			},
+			estimated_gas_cost_of_withdraw: 100_000,
 		};
 
 		expected.txs.home_deploy = TransactionConfig {
@@ -266,19 +272,21 @@ home_deploy = { gas = 20 }
 	#[test]
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
+estimated_gas_cost_of_withdraw = 200000000
+
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = ""
 
 [home.contract]
-bin = "../contracts/HomeBridge.bin"
+bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = ""
 
 [foreign.contract]
-bin = "../contracts/ForeignBridge.bin"
+bin = "../compiled_contracts/ForeignBridge.bin"
 
 [authorities]
 accounts = [
@@ -294,7 +302,7 @@ required_signatures = 2
 				account: "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b".parse().unwrap(),
 				ipc: "".into(),
 				contract: ContractConfig {
-					bin: include_str!("../../contracts/HomeBridge.bin").from_hex().unwrap().into(),
+					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
@@ -304,7 +312,7 @@ required_signatures = 2
 				account: "0x0000000000000000000000000000000000000001".parse().unwrap(),
 				ipc: "".into(),
 				contract: ContractConfig {
-					bin: include_str!("../../contracts/ForeignBridge.bin").from_hex().unwrap().into(),
+					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
@@ -317,7 +325,8 @@ required_signatures = 2
 					"0x0000000000000000000000000000000000000003".parse().unwrap(),
 				],
 				required_signatures: 2,
-			}
+			},
+			estimated_gas_cost_of_withdraw: 200_000_000,
 		};
 
 		let config = Config::load_from_str(toml).unwrap();

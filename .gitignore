@@ -52,3 +52,5 @@ examples/parity_ora-2/keys/OraclesPoA/address_book.json
 jsTests/node_modules/
 examples/db.toml
 jsTests/package-lock.json
+node_modules
+compiled_contracts

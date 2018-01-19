@@ -1,4 +1,5 @@
 var ForeignBridge = artifacts.require("ForeignBridge");
+var helpers = require("./helpers/helpers");
 
 contract('ForeignBridge', function(accounts) {
   it("should deploy contract", function() {
@@ -39,19 +40,19 @@ contract('ForeignBridge', function(accounts) {
     var meta;
     var requiredSignatures = 1;
     var authorities = [accounts[0], accounts[1]];
-    var user_account = accounts[2];
+    var userAccount = accounts[2];
     var value = web3.toWei(1, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
 
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
     }).then(function(result) {
       assert.equal(1, result.logs.length, "Exactly one event should be created");
       assert.equal("Deposit", result.logs[0].event, "Event name should be Deposit");
-      assert.equal(user_account, result.logs[0].args.recipient, "Event recipient should be transaction sender");
+      assert.equal(userAccount, result.logs[0].args.recipient, "Event recipient should be transaction sender");
       assert.equal(value, result.logs[0].args.value, "Event value should match deposited ether");
-      return meta.balances.call(user_account);
+      return meta.balances.call(userAccount);
     }).then(function(result) {
       assert.equal(value, result, "Contract balance should change");
     })
@@ -61,27 +62,63 @@ contract('ForeignBridge', function(accounts) {
     var meta;
     var requiredSignatures = 2;
     var authorities = [accounts[0], accounts[1]];
-    var user_account = accounts[2];
+    var userAccount = accounts[2];
     var value = web3.toWei(1, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
 
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
     }).then(function(result) {
       assert.equal(0, result.logs.length, "No event should be created");
-      return meta.balances.call(user_account);
+      return meta.balances.call(userAccount);
     }).then(function(result) {
       assert.equal(web3.toWei(0, "ether"), result, "Contract balance should not change yet");
-      return meta.deposit(user_account, value, hash, { from: authorities[1] });
+      return meta.deposit(userAccount, value, hash, { from: authorities[1] });
     }).then(function(result) {
       assert.equal(1, result.logs.length, "Exactly one event should be created");
       assert.equal("Deposit", result.logs[0].event, "Event name should be Deposit");
-      assert.equal(user_account, result.logs[0].args.recipient, "Event recipient should be transaction sender");
+      assert.equal(userAccount, result.logs[0].args.recipient, "Event recipient should be transaction sender");
       assert.equal(value, result.logs[0].args.value, "Event value should match deposited ether");
-      return meta.balances.call(user_account);
+      return meta.balances.call(userAccount);
     }).then(function(result) {
       assert.equal(value, result, "Contract balance should change");
+    })
+  })
+
+  it("should not be possible to do same deposit twice for same authority", function() {
+    var meta;
+    var requiredSignatures = 1;
+    var authorities = [accounts[0], accounts[1]];
+    var userAccount = accounts[2];
+    var value = web3.toWei(1, "ether");
+    var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
+
+    return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
+      meta = instance;
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
+    }).then(function(_) {
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
+    }).then(function(result) {
+      assert(false, "doing same deposit twice from same authority should fail");
+    }, function(err) {
+    })
+  })
+
+  it("should not allow non-authorities to execute deposit", function() {
+    var meta;
+    var requiredSignatures = 1;
+    var authorities = [accounts[0], accounts[1]];
+    var userAccount = accounts[2];
+    var value = web3.toWei(1, "ether");
+    var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
+
+    return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
+      meta = instance;
+      return meta.deposit(userAccount, value, hash, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "should fail");
+    }, function(err) {
     })
   })
 
@@ -89,77 +126,130 @@ contract('ForeignBridge', function(accounts) {
     var meta;
     var requiredSignatures = 2;
     var authorities = [accounts[0], accounts[1], accounts[2]];
-    var user_account = accounts[3];
-    var invalid_value = web3.toWei(2, "ether");
+    var userAccount = accounts[3];
+    var invalidValue = web3.toWei(2, "ether");
     var value = web3.toWei(1, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
 
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
     }).then(function(result) {
       assert.equal(0, result.logs.length, "No event should be created yet");
-      return meta.deposit(user_account, invalid_value, hash, { from: authorities[1] });
+      return meta.deposit(userAccount, invalidValue, hash, { from: authorities[1] });
     }).then(function(result) {
       assert.equal(0, result.logs.length, "Misbehaving authority should be ignored");
-      return meta.deposit(user_account, value, hash, { from: authorities[2] })
+      return meta.deposit(userAccount, value, hash, { from: authorities[2] })
     }).then(function(result) {
       assert.equal(1, result.logs.length, "Exactly one event should be created");
       assert.equal("Deposit", result.logs[0].event, "Event name should be Deposit");
-      assert.equal(user_account, result.logs[0].args.recipient, "Event recipient should be transaction sender");
+      assert.equal(userAccount, result.logs[0].args.recipient, "Event recipient should be transaction sender");
       assert.equal(value, result.logs[0].args.value, "Event value should match transaction value");
-      return meta.balances.call(user_account);
+      return meta.balances.call(userAccount);
     }).then(function(result) {
       assert.equal(value, result, "Contract balance should change");
     })
   })
 
-  it("should allow user to transfer value internally", function() {
+  it("should allow user to transfer value locally", function() {
     var meta;
     var requiredSignatures = 1;
     var authorities = [accounts[0], accounts[1]];
-    var user_account = accounts[2];
-    var user_account2 = accounts[3];
-    var value = web3.toWei(3, "ether");
-    var value2 = web3.toWei(1, "ether");
+    var userAccount = accounts[2];
+    var userAccount2 = accounts[3];
+    var user1InitialValue = web3.toWei(3, "ether");
+    var transferedValue = web3.toWei(1, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      // top up balance so we can transfer
+      return meta.deposit(userAccount, user1InitialValue, hash, { from: authorities[0] });
     }).then(function(result) {
-      return meta.transfer(user_account2, value2, false, { from: user_account });
+      return meta.transferLocal(userAccount2, transferedValue, { from: userAccount });
     }).then(function(result) {
       assert.equal(1, result.logs.length, "Exactly one event should be created");
       assert.equal("Transfer", result.logs[0].event, "Event name should be Transfer");
-      assert.equal(user_account, result.logs[0].args.from, "Event from should be transaction sender");
-      assert.equal(user_account2, result.logs[0].args.to, "Event from should be transaction recipient");
-      assert.equal(value2, result.logs[0].args.value, "Event value should match transaction value");
+      assert.equal(userAccount, result.logs[0].args.from, "Event from should be transaction sender");
+      assert.equal(userAccount2, result.logs[0].args.to, "Event from should be transaction recipient");
+      assert.equal(transferedValue, result.logs[0].args.value, "Event value should match transaction value");
       return Promise.all([
-        meta.balances.call(user_account),
-        meta.balances.call(user_account2)
+        meta.balances.call(userAccount),
+        meta.balances.call(userAccount2)
       ])
     }).then(function(result) {
       assert.equal(web3.toWei(2, "ether"), result[0]);
-      assert.equal(web3.toWei(1, "ether"), result[1]);
+      assert.equal(transferedValue, result[1]);
     })
   })
 
-  it("should not allow user to transfer value", function() {
+  it("should not allow user to transfer value they don't have either locally or to home", function() {
     var meta;
     var requiredSignatures = 1;
     var authorities = [accounts[0], accounts[1]];
-    var user_account = accounts[2];
-    var user_account2 = accounts[3];
-    var value = web3.toWei(3, "ether");
-    var value2 = web3.toWei(4, "ether");
+    var userAccount = accounts[2];
+    var recipientAccount = accounts[3];
+    var userValue = web3.toWei(3, "ether");
+    var transferedValue = web3.toWei(4, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      return meta.deposit(userAccount, userValue, hash, { from: authorities[0] });
     }).then(function(result) {
-      return meta.transfer(user_account2, value2, false, { from: user_account });
+      return meta.transferLocal(recipientAccount, transferedValue, { from: userAccount });
     }).then(function(result) {
-      assert(false, "Transfer should fail");
+      assert(false, "transferLocal should fail");
+    }, function(err) {
+      return meta.transferHomeViaRelay(recipientAccount, transferedValue, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "transferHomeViaRelay should fail");
+    }, function(err) {
+    })
+  })
+
+  it("should fail to transfer 0 value both locally and to home", function() {
+    var meta;
+    var requiredSignatures = 1;
+    var authorities = [accounts[0], accounts[1]];
+    var userAccount = accounts[2];
+    var recipientAccount = accounts[3];
+    var userValue = web3.toWei(3, "ether");
+    var transferedValue = web3.toWei(0, "ether");
+    var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
+    return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
+      meta = instance;
+      return meta.deposit(userAccount, userValue, hash, { from: authorities[0] });
+    }).then(function(result) {
+      return meta.transferLocal(recipientAccount, transferedValue, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "transferLocal should fail");
+    }, function(err) {
+      return meta.transferHomeViaRelay(recipientAccount, transferedValue, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "transferHomeViaRelay should fail");
+    }, function(err) {
+    })
+  })
+
+  it("should fail to transfer with value overflow both locally and to home", function() {
+    var meta;
+    var requiredSignatures = 1;
+    var authorities = [accounts[0], accounts[1]];
+    var userAccount = accounts[2];
+    var recipientAccount = accounts[3];
+    var userValue = web3.toWei(3, "ether");
+    var transferedvalue = web3.toWei("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "wei");
+    var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
+    return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
+      meta = instance;
+      return meta.deposit(userAccount, userValue, hash, { from: authorities[0] });
+    }).then(function(result) {
+      return meta.transferLocal(recipientAccount, transferedValue, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "transferLocal should fail");
+    }, function(err) {
+      return meta.transferHomeViaRelay(recipientAccount, transferedValue, { from: userAccount });
+    }).then(function(result) {
+      assert(false, "transferHomeViaRelay should fail");
     }, function(err) {
     })
   })
@@ -168,53 +258,31 @@ contract('ForeignBridge', function(accounts) {
     var meta;
     var requiredSignatures = 1;
     var authorities = [accounts[0], accounts[1]];
-    var user_account = accounts[2];
-    var user_account2 = accounts[3];
+    var userAccount = accounts[2];
+    var userAccount2 = accounts[3];
     var value = web3.toWei(3, "ether");
     var value2 = web3.toWei(1, "ether");
     var hash = "0xe55bb43c36cdf79e23b4adc149cdded921f0d482e613c50c6540977c213bc408";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return meta.deposit(user_account, value, hash, { from: authorities[0] });
+      // top up balance so we can transfer
+      return meta.deposit(userAccount, value, hash, { from: authorities[0] });
     }).then(function(result) {
-      return meta.transfer(user_account2, value2, true, { from: user_account });
+      return meta.transferHomeViaRelay(userAccount2, value2, { from: userAccount });
     }).then(function(result) {
       assert.equal(1, result.logs.length, "Exactly one event should be created");
       assert.equal("Withdraw", result.logs[0].event, "Event name should be Withdraw");
-      assert.equal(user_account2, result.logs[0].args.recipient, "Event recipient should be equal to transaction recipient");
+      assert.equal(userAccount2, result.logs[0].args.recipient, "Event recipient should be equal to transaction recipient");
       assert.equal(value2, result.logs[0].args.value, "Event value should match transaction value");
       return Promise.all([
-        meta.balances.call(user_account),
-        meta.balances.call(user_account2)
+        meta.balances.call(userAccount),
+        meta.balances.call(userAccount2)
       ])
     }).then(function(result) {
       assert.equal(web3.toWei(2, "ether"), result[0]);
       assert.equal(web3.toWei(0, "ether"), result[1]);
     })
   })
-
-  function sign(address, data) {
-    return new Promise(function(resolve, reject) {
-      web3.eth.sign(address, data, function(err, result) {
-        if (err !== null) {
-          return reject(err);
-        } else {
-          return resolve(normalizeSignature(result));
-          //return resolve(result);
-        }
-      })
-    })
-  }
-
-  // geth && testrpc has different output of eth_sign than parity
-  // https://github.com/ethereumjs/testrpc/issues/243#issuecomment-326750236
-  function normalizeSignature(signature) {
-    // strip 0x
-    signature = signature.substr(2);
-
-    // increase v by 27...
-    return "0x" + signature.substr(0, 128) + (parseInt(signature.substr(128), 16) + 27).toString(16);
-  }
 
   it("should successfully submit signature and trigger CollectedSignatures event", function() {
     var meta;
@@ -224,7 +292,7 @@ contract('ForeignBridge', function(accounts) {
     var message = "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
       signature = result;
       return meta.submitSignature(result, message, { from: authorities[0] });
@@ -249,7 +317,7 @@ contract('ForeignBridge', function(accounts) {
     var message = "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
       return meta.submitSignature(result, message, { from: authorities[0] });
     }).then(function(result) {
@@ -268,10 +336,10 @@ contract('ForeignBridge', function(accounts) {
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
       return Promise.all([
-        sign(authorities[0], message),
-        sign(authorities[1], message),
-        sign(authorities[0], message2),
-        sign(authorities[1], message2),
+        helpers.sign(authorities[0], message),
+        helpers.sign(authorities[1], message),
+        helpers.sign(authorities[0], message2),
+        helpers.sign(authorities[1], message2),
       ]);
     }).then(function(result) {
       signatures_for_message.push(result[0]);
@@ -322,7 +390,7 @@ contract('ForeignBridge', function(accounts) {
     var message = "0x1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
       return meta.submitSignature(result, message, { from: authorities[0] });
     }).then(function(result) {
@@ -340,7 +408,7 @@ contract('ForeignBridge', function(accounts) {
     var message2 = "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111112";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
       return meta.submitSignature(result, message2, { from: authorities[0] });
     }).then(function(result) {
@@ -357,7 +425,7 @@ contract('ForeignBridge', function(accounts) {
     var message = "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
       return meta.submitSignature(result, message, { from: authorities[1] });
     }).then(function(result) {
@@ -369,21 +437,22 @@ contract('ForeignBridge', function(accounts) {
 
   it("should not be possible to submit signature twice", function() {
     var meta;
-    var requiredSignatures = 0;
+    var requiredSignatures = 1;
     var authorities = [accounts[0], accounts[1]];
     var message = "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
+    var signature;
     return ForeignBridge.new(requiredSignatures, authorities).then(function(instance) {
       meta = instance;
-      return sign(authorities[0], message);
+      return helpers.sign(authorities[0], message);
     }).then(function(result) {
-      return meta.submitSignature(result, message, { from: authorities[0] });
-    }).then(function(result) {
-      return meta.submitSignature(result, message, { from: authorities[0] });
-    }).then(function(result) {
+      signature = result;
+      return meta.submitSignature(signature, message, { from: authorities[0] });
+    }).then(function(_) {
+      return meta.submitSignature(signature, message, { from: authorities[0] });
+    }).then(function(_) {
       assert(false, "submitSignature should fail");
-    }, function (err) {
+    }, function (_) {
       // nothing
     })
   })
-
 })
