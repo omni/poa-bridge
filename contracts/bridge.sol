@@ -1,12 +1,11 @@
-pragma solidity ^0.4.17;
-
+pragma solidity ^0.4.19;
 
 /// general helpers.
 /// `internal` so they get compiled into contracts using them.
 library Helpers {
     /// returns whether `array` contains `value`.
     function addressArrayContains(address[] array, address value) internal pure returns (bool) {
-        for (uint i = 0; i < array.length; i++) {
+        for (uint256 i = 0; i < array.length; i++) {
             if (array[i] == value) {
                 return true;
             }
@@ -16,10 +15,10 @@ library Helpers {
 
     // returns the digits of `inputValue` as a string.
     // example: `uintToString(12345678)` returns `"12345678"`
-    function uintToString(uint inputValue) internal pure returns (string) {
+    function uintToString(uint256 inputValue) internal pure returns (string) {
         // figure out the length of the resulting string
-        uint length = 0;
-        uint currentValue = inputValue;
+        uint256 length = 0;
+        uint256 currentValue = inputValue;
         do {
             length++;
             currentValue /= 10;
@@ -27,7 +26,7 @@ library Helpers {
         // allocate enough memory
         bytes memory result = new bytes(length);
         // construct the string backwards
-        uint i = length - 1;
+        uint256 i = length - 1;
         currentValue = inputValue;
         do {
             result[i--] = byte(48 + currentValue % 10);
@@ -35,6 +34,35 @@ library Helpers {
         } while (currentValue != 0);
         return string(result);
     }
+
+    /// returns whether signatures (whose components are in `vs`, `rs`, `ss`)
+    /// contain `requiredSignatures` distinct correct signatures
+    /// where signer is in `allowed_signers`
+    /// that signed `message`
+    function hasEnoughValidSignatures(bytes message, uint8[] vs, bytes32[] rs, bytes32[] ss, address[] allowed_signers, uint256 requiredSignatures) internal pure returns (bool) {
+        // not enough signatures
+        if (vs.length < requiredSignatures) {
+            return false;
+        }
+
+        var hash = MessageSigning.hashMessage(message);
+        var encountered_addresses = new address[](allowed_signers.length);
+
+        for (uint256 i = 0; i < requiredSignatures; i++) {
+            var recovered_address = ecrecover(hash, vs[i], rs[i], ss[i]);
+            // only signatures by addresses in `addresses` are allowed
+            if (!addressArrayContains(allowed_signers, recovered_address)) {
+                return false;
+            }
+            // duplicate signatures are not allowed
+            if (addressArrayContains(encountered_addresses, recovered_address)) {
+                return false;
+            }
+            encountered_addresses[i] = recovered_address;
+        }
+        return true;
+    }
+
 }
 
 
@@ -46,6 +74,10 @@ library HelpersTest {
 
     function uintToString(uint256 inputValue) public pure returns (string str) {
         return Helpers.uintToString(inputValue);
+    }
+
+    function hasEnoughValidSignatures(bytes message, uint8[] vs, bytes32[] rs, bytes32[] ss, address[] addresses, uint256 requiredSignatures) public pure returns (bool) {
+        return Helpers.hasEnoughValidSignatures(message, vs, rs, ss, addresses, requiredSignatures);
     }
 }
 
@@ -84,10 +116,11 @@ library MessageSigningTest {
 
 library Message {
     // layout of message :: bytes:
-    // offset  0: 32 bytes :: uint (little endian) - message length
+    // offset  0: 32 bytes :: uint256 (little endian) - message length
     // offset 32: 20 bytes :: address - recipient address
-    // offset 52: 32 bytes :: uint (little endian) - value
+    // offset 52: 32 bytes :: uint256 (little endian) - value
     // offset 84: 32 bytes :: bytes32 - transaction hash
+    // offset 116: 32 bytes :: uint256 (little endian) - home gas price
 
     // bytes 1 to 32 are 0 because message length is stored as little endian.
     // mload always reads 32 bytes.
@@ -109,8 +142,8 @@ library Message {
         return recipient;
     }
 
-    function getValue(bytes message) internal pure returns (uint) {
-        uint value;
+    function getValue(bytes message) internal pure returns (uint256) {
+        uint256 value;
         // solium-disable-next-line security/no-inline-assembly
         assembly {
             value := mload(add(message, 52))
@@ -126,6 +159,15 @@ library Message {
         }
         return hash;
     }
+
+    function getHomeGasPrice(bytes message) internal pure returns (uint256) {
+        uint256 gasPrice;
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            gasPrice := mload(add(message, 116))
+        }
+        return gasPrice;
+    }
 }
 
 
@@ -135,12 +177,16 @@ library MessageTest {
         return Message.getRecipient(message);
     }
 
-    function getValue(bytes message) public pure returns (uint) {
+    function getValue(bytes message) public pure returns (uint256) {
         return Message.getValue(message);
     }
 
     function getTransactionHash(bytes message) public pure returns (bytes32) {
         return Message.getTransactionHash(message);
+    }
+
+    function getHomeGasPrice(bytes message) public pure returns (uint256) {
+        return Message.getHomeGasPrice(message);
     }
 }
 
@@ -149,14 +195,14 @@ contract HomeBridge {
     /// Number of authorities signatures required to withdraw the money.
     ///
     /// Must be lesser than number of authorities.
-    uint public requiredSignatures;
+    uint256 public requiredSignatures;
 
     /// The gas cost of calling `HomeBridge.withdraw`.
     ///
     /// Is subtracted from `value` on withdraw.
     /// recipient pays the relaying authority for withdraw.
     /// this shuts down attacks that exhaust authorities funds on home chain.
-    uint public estimatedGasCostOfWithdraw;
+    uint256 public estimatedGasCostOfWithdraw;
 
     /// Contract authorities.
     address[] public authorities;
@@ -165,32 +211,16 @@ contract HomeBridge {
     mapping (bytes32 => bool) withdraws;
 
     /// Event created on money deposit.
-    event Deposit (address recipient, uint value);
+    event Deposit (address recipient, uint256 value);
 
     /// Event created on money withdraw.
-    event Withdraw (address recipient, uint value);
-
-    /// Multisig authority validation
-    modifier allAuthorities(uint8[] v, bytes32[] r, bytes32[] s, bytes message) {
-        var hash = MessageSigning.hashMessage(message);
-        var used = new address[](requiredSignatures);
-
-        require(requiredSignatures <= v.length);
-
-        for (uint i = 0; i < requiredSignatures; i++) {
-            var a = ecrecover(hash, v[i], r[i], s[i]);
-            require(Helpers.addressArrayContains(authorities, a));
-            require(!Helpers.addressArrayContains(used, a));
-            used[i] = a;
-        }
-        _;
-    }
+    event Withdraw (address recipient, uint256 value);
 
     /// Constructor.
     function HomeBridge(
-        uint requiredSignaturesParam,
+        uint256 requiredSignaturesParam,
         address[] authoritiesParam,
-        uint estimatedGasCostOfWithdrawParam
+        uint256 estimatedGasCostOfWithdrawParam
     ) public
     {
         require(requiredSignaturesParam != 0);
@@ -205,31 +235,37 @@ contract HomeBridge {
         Deposit(msg.sender, msg.value);
     }
 
-    /// to be called by authorities to check
-    /// whether they withdraw message should be relayed or whether it
-    /// is too low to cover the cost of calling withdraw and can be ignored
-    function isMessageValueSufficientToCoverRelay(bytes message) public view returns (bool) {
-        return Message.getValue(message) > getWithdrawRelayCost();
-    }
+    /// final step of a withdraw.
+    /// checks that `requiredSignatures` `authorities` have signed of on the `message`.
+    /// then transfers `value` to `recipient` (both extracted from `message`).
+    /// see message library above for a breakdown of the `message` contents.
+    /// `vs`, `rs`, `ss` are the components of the signatures.
 
-    /// an upper bound to the cost of relaying a withdraw by calling HomeBridge.withdraw
-    function getWithdrawRelayCost() public view returns (uint) {
-        return estimatedGasCostOfWithdraw * tx.gasprice;
-    }
+    /// anyone can call this, provided they have the message and required signatures!
+    /// only the `authorities` can create these signatures.
+    /// `requiredSignatures` authorities can sign arbitrary `message`s
+    /// transfering any ether `value` out of this contract to `recipient`.
+    /// bridge users must trust a majority of `requiredSignatures` of the `authorities`.
+    function withdraw(uint8[] vs, bytes32[] rs, bytes32[] ss, bytes message) public {
+        require(message.length == 116);
 
-    /// Used to withdraw money from the contract.
-    ///
-    /// message contains:
-    /// withdrawal recipient (bytes20)
-    /// withdrawal value (uint)
-    /// foreign transaction hash (bytes32) // to avoid transaction duplication
-    ///
-    /// NOTE that anyone can call withdraw provided they have the message and required signatures!
-    function withdraw(uint8[] v, bytes32[] r, bytes32[] s, bytes message) public allAuthorities(v, r, s, message) {
-        require(message.length == 84);
+        // check that at least `requiredSignatures` `authorities` have signed `message`
+        require(Helpers.hasEnoughValidSignatures(message, vs, rs, ss, authorities, requiredSignatures));
+
         address recipient = Message.getRecipient(message);
-        uint value = Message.getValue(message);
+        uint256 value = Message.getValue(message);
         bytes32 hash = Message.getTransactionHash(message);
+        uint256 homeGasPrice = Message.getHomeGasPrice(message);
+
+        // if the recipient calls `withdraw` they can choose the gas price freely.
+        // if anyone else calls `withdraw` they have to use the gas price
+        // `homeGasPrice` specified by the user initiating the withdraw.
+        // this is a security mechanism designed to shut down
+        // malicious senders setting extremely high gas prices
+        // and effectively burning recipients withdrawn value.
+        // see https://github.com/paritytech/parity-bridge/issues/112
+        // for further explanation.
+        require((recipient == msg.sender) || (tx.gasprice == homeGasPrice));
 
         // The following two statements guard against reentry into this function.
         // Duplicated withdraw or reentry.
@@ -237,15 +273,10 @@ contract HomeBridge {
         // Order of operations below is critical to avoid TheDAO-like re-entry bug
         withdraws[hash] = true;
 
-        // this fails if `value` is not even enough to cover the relay cost.
-        // Authorities simply IGNORE withdraws where `value` can’t relay cost.
-        // Think of it as `value` getting burned entirely on the relay with no value left to pay out the recipient.
-        require(isMessageValueSufficientToCoverRelay(message));
-
-        uint estimatedWeiCostOfWithdraw = getWithdrawRelayCost();
+        uint256 estimatedWeiCostOfWithdraw = estimatedGasCostOfWithdraw * homeGasPrice;
 
         // charge recipient for relay cost
-        uint valueRemainingAfterSubtractingCost = value - estimatedWeiCostOfWithdraw;
+        uint256 valueRemainingAfterSubtractingCost = value - estimatedWeiCostOfWithdraw;
 
         // pay out recipient
         recipient.transfer(valueRemainingAfterSubtractingCost);
@@ -264,165 +295,209 @@ contract ERC20 {
 }
 
 contract ForeignBridge {
-    struct SignaturesCollection {
-        /// Signed message.
-        bytes message;
-        /// Authorities who signed the message.
-        address[] signed;
-        /// Signaturs
-        bytes[] signatures;
-    }
-
     /// Number of authorities signatures required to withdraw the money.
     ///
-    /// Must be lesser than number of authorities.
-    uint public requiredSignatures;
+    /// Must be less than number of authorities.
+    uint256 public requiredSignatures;
+
+    uint256 public estimatedGasCostOfWithdraw;
 
     /// Contract authorities.
-    address[] public authorities;
+    mapping (address => bool) authorities;
+
+    /// Pending mesages
+    mapping (bytes32 => bytes) messages;
+    /// ???
+    mapping (bytes32 => bytes) signatures;
+    
+    /// Pending deposits and authorities who confirmed them
+    mapping (bytes32 => bool) messages_signed;
+    mapping (bytes32 => uint) num_messages_signed;
 
     /// Pending deposits and authorities who confirmed them
-    mapping (bytes32 => address[]) deposits;
+    mapping (bytes32 => bool) deposits_signed;
+    mapping (bytes32 => uint) num_deposits_signed;
 
-    /// List of authorities confirmed to set up ERC-20 token address
-    mapping (address => address[]) public token_address;
-    
     /// Token to work with
     ERC20 public erc20token;
-    
-    /// Event created on money deposit.
-    event TokenAddress(address token);
-    
-    /// Pending signatures and authorities who confirmed them
-    mapping (bytes32 => SignaturesCollection) signatures;
 
-    /// Event created on money deposit.
-    event Deposit(address recipient, uint value);
+    /// List of authorities confirmed to set up ERC-20 token address
+    mapping (bytes32 => bool) tokenAddressAprroval_signs;
+    mapping (address => uint256) num_tokenAddressAprroval_signs;
+
+    /// triggered when relay of deposit from HomeBridge is complete
+    event Deposit(address recipient, uint256 value);
 
     /// Event created on money withdraw.
-    event Withdraw(address recipient, uint value);
+    event Withdraw(address recipient, uint256 value, uint256 homeGasPrice);
 
     /// Collected signatures which should be relayed to home chain.
-    event CollectedSignatures(address authority, bytes32 messageHash);
+    event CollectedSignatures(address authorityResponsibleForRelay, bytes32 messageHash);
+
+    /// Event created when new token address is set up.
+    event TokenAddress(address token);
 
     /// Constructor.
     function ForeignBridge(
-        uint requiredSignaturesParam,
-        address[] authoritiesParam
+        uint256 _requiredSignatures,
+        address[] _authorities,
+        uint256 _estimatedGasCostOfWithdraw
     ) public
     {
-        require(requiredSignaturesParam != 0);
-        require(requiredSignaturesParam <= authoritiesParam.length);
-        requiredSignatures = requiredSignaturesParam;
-        authorities = authoritiesParam;
+        require(_requiredSignatures != 0);
+        require(_requiredSignatures <= _authorities.length);
+        requiredSignatures = _requiredSignatures;
+        
+        for (uint i = 0; i < _authorities.length; i++) {
+            authorities[_authorities[i]] = true;
+        }
+        
+        estimatedGasCostOfWithdraw = _estimatedGasCostOfWithdraw;
     }
 
-    /// Multisig authority validation
+    /// require that sender is an authority
     modifier onlyAuthority() {
-        require(Helpers.addressArrayContains(authorities, msg.sender));
+        require(authorities[msg.sender]);
         _;
     }
 
-    /// Set up the token address.
+    /// Set up the token address. It allows to set up or change
+    /// the ERC20 token address only if authorities confirmed this.
+    ///
+    /// Usage maps instead of arrey allows to reduce gas consumption
     ///
     /// token address (address)
     function setTokenAddress (ERC20 token) public onlyAuthority() {
-        // Protect duplicated request
-        require(!token_address[token].contains(msg.sender));
+        // Duplicated deposits
+        bytes32 token_sender = keccak256(msg.sender, token);
+        require(!tokenAddressAprroval_signs[token_sender]);
+        tokenAddressAprroval_signs[token_sender]= true;
 
-        token_address[token].push(msg.sender);
+        uint signed = num_tokenAddressAprroval_signs[address(token)] + 1;
+        num_tokenAddressAprroval_signs[address(token)] = signed;
+
         // TODO: this may cause troubles if requriedSignatures len is changed
-        if (token_address[token].length == requiredSignatures) {
+        if (signed == requiredSignatures) {
             erc20token = ERC20(token);
             TokenAddress(token);
         }
     }
 
-    /// Used to deposit money to the contract.
+    /// Used to transfer tokens to the `recipient`.
+    /// The bridge contract must own enough tokens to release them for 
+    /// recipients. Tokens must be transfered to the bridge contract BEFORE
+    /// the first deposit will be performed.
+    ///
+    /// Usage maps instead of array allows to reduce gas consumption
+    /// from 91169 to 89348 (solc 0.4.19). 
     ///
     /// deposit recipient (bytes20)
-    /// deposit value (uint)
+    /// deposit value (uint256)
     /// mainnet transaction hash (bytes32) // to avoid transaction duplication
     function deposit(address recipient, uint value, bytes32 transactionHash) public onlyAuthority() {
+        require(erc20token != address(0x0));
+
         // Protection from misbehaing authority
-        var hash = keccak256(recipient, value, transactionHash);
+        bytes32 hash_msg = keccak256(recipient, value, transactionHash);
+        bytes32 hash_sender = keccak256(msg.sender, hash_msg);
 
         // Duplicated deposits
-        require(!Helpers.addressArrayContains(deposits[hash], msg.sender));
+        require(!deposits_signed[hash_sender]);
+        deposits_signed[hash_sender]= true;
 
-        deposits[hash].push(msg.sender);
+        uint signed = num_deposits_signed[hash_msg] + 1;
+        num_deposits_signed[hash_msg] = signed;
+
         // TODO: this may cause troubles if requriedSignatures len is changed
-        if (deposits[hash].length == requiredSignatures) {
+        if (signed == requiredSignatures) {
+            // If the bridge contract does not own enough tokens to transfer
+            // it will couse funds lock on the home side of the bridge
             erc20token.transfer(recipient, value);
             Deposit(recipient, value);
         }
     }
 
-    /// Transfer `value` from `msg.sender`s local balance (on `foreign` chain) to `recipient` on `home` chain.
-    ///
-    /// immediately decreases `msg.sender`s local balance.
-    /// emits a `Withdraw` event which will be picked up by the bridge authorities.
-    /// bridge authorities will then sign off (by calling `submitSignature`) on a message containing `value`,
-    /// `recipient` and the `hash` of the transaction on `foreign` containing the `Withdraw` event.
-    /// once `requiredSignatures` are collected a `CollectedSignatures` event will be emitted.
-    /// an authority will pick up `CollectedSignatures` an call `HomeBridge.withdraw`
-    /// which transfers `value - relayCost` to `recipient` completing the transfer.
-    function transferHomeViaRelay(address recipient, uint value) public {
-        require(erc20token.allowance(msg.sender, this) >= value); 
-        erc20token.transferFrom(msg.sender, this, value);
+    /// Used to transfer `value` of tokens from `_from`s balance on local 
+    /// (`foreign`) chain to the same address (`_from`) on `home` chain.
+    /// Transfer of tokens within local (`foreign`) chain performed by usual
+    /// way through transfer method of the token contract.
+    /// In order to swap tokens to coins the owner (`_from`) must allow this
+    /// explicitly in the token contract by calling approveAndCall with address
+    /// of the bridge account.
+    /// The method locks tokens and emits a `Withdraw` event which will be
+    /// picked up by the bridge authorities.
+    /// Bridge authorities will then sign off (by calling `submitSignature`) on
+    /// a message containing `value`, the recipient (`_from`) and the `hash` of
+    /// the transaction on `foreign` containing the `Withdraw` event.
+    /// Once `requiredSignatures` are collected a `CollectedSignatures` event
+    /// will be emitted.
+    /// An authority will pick up `CollectedSignatures` an call
+    /// `HomeBridge.withdraw` which transfers `value - relayCost` to the
+    /// recipient completing the transfer.
+    function receiveApproval(address _from, uint256 _value, ERC20 _tokenContract, bytes _msg) external returns(bool) {
+        require(erc20token != address(0x0));
+        require(msg.sender == address(erc20token));
+        require(erc20token.allowance(_from, this) >= _value);
+        erc20token.transferFrom(_from, this, _value);
 
-        balances[msg.sender] -= value;
-        Withdraw(recipient, value);
-    }
+        // Need to decide what to do with homeGasPrice from the original parity-bridge contract
+        Withdraw(_from, _value, 18000000000 wei);
 
-    /// Transfer `value` to `recipient` on this `foreign` chain.
-    ///
-    /// does not affect `home` chain. does not do a relay.
-    function transferLocal(address recipient, uint value) public {
-        require(balances[msg.sender] >= value);
-        // fails if value == 0, or if there is an overflow
-        require(balances[recipient] + value > balances[recipient]);
-
-        balances[msg.sender] -= value;
-        balances[recipient] += value;
-        Transfer(msg.sender, recipient, value);
+        return true;
     }
 
     /// Should be used as sync tool
     ///
     /// Message is a message that should be relayed to main chain once authorities sign it.
     ///
+    /// Usage several maps instead of structure allows to reduce gas consumption
+    /// from 265102 to 242334 (solc 0.4.19). 
+    ///
     /// for withdraw message contains:
     /// withdrawal recipient (bytes20)
-    /// withdrawal value (uint)
+    /// withdrawal value (uint256)
     /// foreign transaction hash (bytes32) // to avoid transaction duplication
     function submitSignature(bytes signature, bytes message) public onlyAuthority() {
-        // Validate submited signatures
-        require(MessageSigning.recoverAddressFromSignedMessage(signature, message) == msg.sender);
+        // ensure that `signature` is really `message` signed by `msg.sender`
+        require(msg.sender == MessageSigning.recoverAddressFromSignedMessage(signature, message));
 
         // Valid withdraw message must have 84 bytes
-        require(message.length == 84);
-        var hash = keccak256(message);
+        require(message.length == 116);
+        bytes32 hash = keccak256(message);
+        bytes32 hash_sender = keccak256(msg.sender, hash);
 
-        // Duplicated signatures
-        require(!Helpers.addressArrayContains(signatures[hash].signed, msg.sender));
-        signatures[hash].message = message;
-        signatures[hash].signed.push(msg.sender);
-        signatures[hash].signatures.push(signature);
+        uint signed = num_messages_signed[hash_sender] + 1;
+
+        if (signed > 1) {
+            // Duplicated signatures
+            require(!messages_signed[hash_sender]);
+        }
+        else {
+            // check if it will really reduce gas usage in case of the second transaction
+            // with the same hash
+            messages[hash] = message;
+        }
+        messages_signed[hash_sender] = true;
+
+        bytes32 sign_idx = keccak256(hash, (signed-1));
+        signatures[sign_idx]= signature;
+
+        num_messages_signed[hash_sender] = signed;
 
         // TODO: this may cause troubles if requiredSignatures len is changed
-        if (signatures[hash].signed.length == requiredSignatures) {
+        if (signed == requiredSignatures) {
             CollectedSignatures(msg.sender, hash);
         }
     }
 
     /// Get signature
     function signature(bytes32 hash, uint index) public view returns (bytes) {
-        return signatures[hash].signatures[index];
+        bytes32 sign_idx = keccak256(hash, index);
+        return signatures[sign_idx];
     }
 
     /// Get message
     function message(bytes32 hash) public view returns (bytes) {
-        return signatures[hash].message;
+        return messages[hash];
     }
 }

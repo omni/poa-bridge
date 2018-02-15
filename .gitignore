@@ -54,3 +54,5 @@ examples/db.toml
 jsTests/package-lock.json
 node_modules
 compiled_contracts
+
+integration-tests/tmp

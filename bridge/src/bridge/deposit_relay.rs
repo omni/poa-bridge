@@ -19,7 +19,7 @@ fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
 
 fn deposit_relay_payload(home: &home::HomeBridge, foreign: &foreign::ForeignBridge, log: Log) -> Result<Bytes> {
 	let raw_log = RawLog {
-		topics: log.topics.into_iter().map(|t| t.0).collect(),
+		topics: log.topics,
 		data: log.data.0,
 	};
 	let deposit_log = home.events().deposit().parse_log(raw_log)?;
@@ -47,11 +47,11 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 		request_timeout: app.config.home.request_timeout,
 		poll_interval: app.config.home.poll_interval,
 		confirmations: app.config.home.required_confirmations,
-		filter: deposits_filter(&app.home_bridge, init.home_contract_address.clone()),
+		filter: deposits_filter(&app.home_bridge, init.home_contract_address),
 	};
 	DepositRelay {
 		logs: api::log_stream(app.connections.home.clone(), app.timer.clone(), logs_init),
-		foreign_contract: init.foreign_contract_address.clone(),
+		foreign_contract: init.foreign_contract_address,
 		state: DepositRelayState::Wait,
 		app,
 	}
@@ -73,13 +73,14 @@ impl<T: Transport> Stream for DepositRelay<T> {
 			let next_state = match self.state {
 				DepositRelayState::Wait => {
 					let item = try_stream!(self.logs.poll());
+					info!("got {} new deposits to relay", item.logs.len());
 					let deposits = item.logs
 						.into_iter()
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
 						.collect::<Result<Vec<_>>>()?
 						.into_iter()
 						.map(|payload| TransactionRequest {
-							from: self.app.config.foreign.account.clone(),
+							from: self.app.config.foreign.account,
 							to: Some(self.foreign_contract.clone()),
 							gas: Some(self.app.config.txs.deposit_relay.gas.into()),
 							gas_price: Some(self.app.config.txs.deposit_relay.gas_price.into()),
@@ -95,6 +96,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						})
 						.collect::<Vec<_>>();
 
+					info!("relaying {} deposits", deposits.len());
 					DepositRelayState::RelayDeposits {
 						future: join_all(deposits),
 						block: item.to,
@@ -102,6 +104,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 				},
 				DepositRelayState::RelayDeposits { ref mut future, block } => {
 					let _ = try_ready!(future.poll());
+					info!("deposit relay completed");
 					DepositRelayState::Yield(Some(block))
 				},
 				DepositRelayState::Yield(ref mut block) => match block.take() {
@@ -129,8 +132,8 @@ mod tests {
 		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f0".from_hex().unwrap();
 		let log = Log {
 			data: data.into(),
-			topics: vec!["0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c".parse().unwrap()],
-			transaction_hash: Some("0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".parse().unwrap()),
+			topics: vec!["e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c".into()],
+			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
 			..Default::default()
 		};
 
