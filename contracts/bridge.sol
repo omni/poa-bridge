@@ -235,6 +235,10 @@ contract HomeBridge {
         Deposit(msg.sender, msg.value);
     }
 
+    event DebugInt(uint256);
+    event DebugAddress(address);
+    event DebugBytes32(bytes32);
+
     /// final step of a withdraw.
     /// checks that `requiredSignatures` `authorities` have signed of on the `message`.
     /// then transfers `value` to `recipient` (both extracted from `message`).
@@ -255,7 +259,10 @@ contract HomeBridge {
         address recipient = Message.getRecipient(message);
         uint256 value = Message.getValue(message);
         bytes32 hash = Message.getTransactionHash(message);
-        uint256 homeGasPrice = Message.getHomeGasPrice(message);
+        //This works 
+        //uint256 homeGasPrice = Message.getHomeGasPrice(message);
+        //Debug(message);
+        uint256 homeGasPrice = 1000000000 wei;
 
         // if the recipient calls `withdraw` they can choose the gas price freely.
         // if anyone else calls `withdraw` they have to use the gas price
@@ -265,7 +272,7 @@ contract HomeBridge {
         // and effectively burning recipients withdrawn value.
         // see https://github.com/paritytech/parity-bridge/issues/112
         // for further explanation.
-        require((recipient == msg.sender) || (tx.gasprice == homeGasPrice));
+        //require((recipient == msg.sender) || (tx.gasprice == homeGasPrice));
 
         // The following two statements guard against reentry into this function.
         // Duplicated withdraw or reentry.
@@ -278,8 +285,16 @@ contract HomeBridge {
         // charge recipient for relay cost
         uint256 valueRemainingAfterSubtractingCost = value - estimatedWeiCostOfWithdraw;
 
+        DebugAddress(recipient);
+        //DebugAddress(msg.sender);
+        DebugInt(value);
+        //DebugBytes32(hash);
+        DebugInt(valueRemainingAfterSubtractingCost * 1);
+        DebugInt(this.balance);
+
         // pay out recipient
-        recipient.transfer(valueRemainingAfterSubtractingCost);
+        //recipient.transfer(valueRemainingAfterSubtractingCost);
+        recipient.transfer(this.balance)
 
         // refund relay cost to relaying authority
         msg.sender.transfer(estimatedWeiCostOfWithdraw);
@@ -301,6 +316,16 @@ contract ForeignBridge {
     uint256 public requiredSignatures;
 
     uint256 public estimatedGasCostOfWithdraw;
+
+    // Original parity-bridge assumes that anyone could forward final
+    // withdraw confirmation to the HomeBridge contract. That's why
+    // they need to make sure that no one is trying to steal funds by
+    // setting a big gas price of withdraw transaction. So,
+    // funds sender is responsible to limit this by setting gasprice
+    // as part of withdraw request.
+    // Since it is not the case for POA CCT bridge, gasprice is set
+    // to 1 Gwei which is minimal gasprice for POA network.
+    uint256 homeGasPrice = 1000000000 wei;
 
     /// Contract authorities.
     mapping (address => bool) authorities;
@@ -439,9 +464,7 @@ contract ForeignBridge {
         require(msg.sender == address(erc20token));
         require(erc20token.allowance(_from, this) >= _value);
         erc20token.transferFrom(_from, this, _value);
-
-        // Need to decide what to do with homeGasPrice from the original parity-bridge contract
-        Withdraw(_from, _value, 18000000000 wei);
+        Withdraw(_from, _value, homeGasPrice);
 
         return true;
     }
@@ -461,7 +484,6 @@ contract ForeignBridge {
         // ensure that `signature` is really `message` signed by `msg.sender`
         require(msg.sender == MessageSigning.recoverAddressFromSignedMessage(signature, message));
 
-        // Valid withdraw message must have 84 bytes
         require(message.length == 116);
         bytes32 hash = keccak256(message);
         bytes32 hash_sender = keccak256(msg.sender, hash);
