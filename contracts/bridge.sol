@@ -1,4 +1,4 @@
-pragma solidity ^0.4.19;
+pragma solidity ^0.4.18;
 
 /// general helpers.
 /// `internal` so they get compiled into contracts using them.
@@ -294,7 +294,7 @@ contract HomeBridge {
 
         // pay out recipient
         //recipient.transfer(valueRemainingAfterSubtractingCost);
-        recipient.transfer(this.balance)
+        recipient.transfer(this.balance);
 
         // refund relay cost to relaying authority
         msg.sender.transfer(estimatedWeiCostOfWithdraw);
