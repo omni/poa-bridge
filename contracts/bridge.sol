@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.19;
 
 /// general helpers.
 /// `internal` so they get compiled into contracts using them.
@@ -116,11 +116,11 @@ library MessageSigningTest {
 
 library Message {
     // layout of message :: bytes:
-    // offset  0: 32 bytes :: uint256 (little endian) - message length
+    // offset  0: 32 bytes :: uint256 - message length
     // offset 32: 20 bytes :: address - recipient address
-    // offset 52: 32 bytes :: uint256 (little endian) - value
+    // offset 52: 32 bytes :: uint256 - value
     // offset 84: 32 bytes :: bytes32 - transaction hash
-    // offset 116: 32 bytes :: uint256 (little endian) - home gas price
+    // offset 116: 32 bytes :: uint256 - home gas price
 
     // bytes 1 to 32 are 0 because message length is stored as little endian.
     // mload always reads 32 bytes.
@@ -235,10 +235,6 @@ contract HomeBridge {
         Deposit(msg.sender, msg.value);
     }
 
-    event DebugInt(uint256);
-    event DebugAddress(address);
-    event DebugBytes32(bytes32);
-
     /// final step of a withdraw.
     /// checks that `requiredSignatures` `authorities` have signed of on the `message`.
     /// then transfers `value` to `recipient` (both extracted from `message`).
@@ -259,10 +255,7 @@ contract HomeBridge {
         address recipient = Message.getRecipient(message);
         uint256 value = Message.getValue(message);
         bytes32 hash = Message.getTransactionHash(message);
-        //This works 
-        //uint256 homeGasPrice = Message.getHomeGasPrice(message);
-        //Debug(message);
-        uint256 homeGasPrice = 1000000000 wei;
+        uint256 homeGasPrice = Message.getHomeGasPrice(message);
 
         // if the recipient calls `withdraw` they can choose the gas price freely.
         // if anyone else calls `withdraw` they have to use the gas price
@@ -272,7 +265,7 @@ contract HomeBridge {
         // and effectively burning recipients withdrawn value.
         // see https://github.com/paritytech/parity-bridge/issues/112
         // for further explanation.
-        //require((recipient == msg.sender) || (tx.gasprice == homeGasPrice));
+        require((recipient == msg.sender) || (tx.gasprice == homeGasPrice));
 
         // The following two statements guard against reentry into this function.
         // Duplicated withdraw or reentry.
@@ -285,16 +278,8 @@ contract HomeBridge {
         // charge recipient for relay cost
         uint256 valueRemainingAfterSubtractingCost = value - estimatedWeiCostOfWithdraw;
 
-        DebugAddress(recipient);
-        //DebugAddress(msg.sender);
-        DebugInt(value);
-        //DebugBytes32(hash);
-        DebugInt(valueRemainingAfterSubtractingCost * 1);
-        DebugInt(this.balance);
-
         // pay out recipient
-        //recipient.transfer(valueRemainingAfterSubtractingCost);
-        recipient.transfer(this.balance);
+        recipient.transfer(valueRemainingAfterSubtractingCost);
 
         // refund relay cost to relaying authority
         msg.sender.transfer(estimatedWeiCostOfWithdraw);
