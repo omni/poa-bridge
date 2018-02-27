@@ -190,8 +190,64 @@ library MessageTest {
     }
 }
 
+/// This contract introduces a new field which can be used by new bridge
+/// instances to get information when the bridge contract was deployed.
+/// This will avoid necessity to distribute this information as part of the
+/// database file to new validators if they want to join to existing
+/// bridge validators group. 
+/// So, now bridge deployment script or webapp could pickup HomeBridge
+/// and ForeignBridge addresses and request block deployed from the contracts
+/// in order to  generate correct database file. 
+contract BridgeDeploymentAddressStorage {
+    uint256 public deployedAtBlock;
 
-contract HomeBridge {
+    function BridgeDeploymentAddressStorage() public {
+        deployedAtBlock = block.number;
+    }
+}
+
+/// Due to nature of bridge operations it makes sense to have the same value
+/// of gas consumption limits which will distributed among all validators serving
+/// particular bridge. This approach introduces few advantages:
+/// --- new bridge instances will pickup limits from the contract instead of
+///     looking at the configuration file (this configuration parameters could be
+///     depricated)
+/// --- as soon as upgradable bridge contract is implemented these limits needs
+///     to be updated every time the contract is upgraded. Validators could get
+///     an event that limits updated and use new values to send transactions.
+contract HomeBridgeGasConsumptionLimitsStorage {
+    uint256 public gasLimitWithdrawRelay;
+
+    event GasConsumptionLimitsUpdated(uint256);
+
+    function setGasLimitWithdrawRelay(uint256 gas) {
+        gasLimitWithdrawRelay = gas;
+
+        GasConsumptionLimitsUpdated(gasLimitWithdrawRelay);
+    }
+}
+
+contract ForeignBridgeGasConsumptionLimitsStorage {
+    uint256 public gasLimitDepositRelay;
+    uint256 public gasLimitWithdrawConfirm;
+
+    event GasConsumptionLimitsUpdated(uint256, uint256);
+
+    function setGasLimitDepositRelay(uint256 gas) {
+        gasLimitDepositRelay = gas;
+
+        GasConsumptionLimitsUpdated(gasLimitDepositRelay, gasLimitWithdrawConfirm);
+    }
+
+    function setGasLimitWithdrawConfirm(uint256 gas) {
+        gasLimitWithdrawConfirm = gas;
+
+        GasConsumptionLimitsUpdated(gasLimitDepositRelay, gasLimitWithdrawConfirm);
+    }
+}
+
+contract HomeBridge is BridgeDeploymentAddressStorage, 
+                       HomeBridgeGasConsumptionLimitsStorage {
     /// Number of authorities signatures required to withdraw the money.
     ///
     /// Must be lesser than number of authorities.
@@ -294,7 +350,8 @@ contract ERC20 {
     function allowance(address owner, address spender) public constant returns (uint256);
 }
 
-contract ForeignBridge {
+contract ForeignBridge is BridgeDeploymentAddressStorage, 
+                          ForeignBridgeGasConsumptionLimitsStorage {
     /// Number of authorities signatures required to withdraw the money.
     ///
     /// Must be less than number of authorities.
