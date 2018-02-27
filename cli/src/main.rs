@@ -19,7 +19,8 @@ use tokio_core::reactor::Core;
 use bridge::app::App;
 use bridge::bridge::{create_bridge, create_deploy, Deployed};
 use bridge::config::Config;
-use bridge::error::Error;
+use bridge::error::{Error, ErrorKind};
+use bridge::web3;
 
 const USAGE: &'static str = r#"
 Ethereum-Kovan bridge.
@@ -66,7 +67,7 @@ fn execute<S, I>(command: I) -> Result<String, Error> where I: IntoIterator<Item
 	let mut event_loop = Core::new().unwrap();
 
 	info!(target: "bridge", "Establishing ipc connection");
-	let app = App::new_ipc(config, &args.arg_database, &event_loop.handle())?;
+	let app = App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle())?;
 	let app_ref = Arc::new(app.as_ref());
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
@@ -86,8 +87,34 @@ fn execute<S, I>(command: I) -> Result<String, Error> where I: IntoIterator<Item
 	};
 
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app_ref, &database).and_then(|_| future::ok(true)).collect();
-	event_loop.run(bridge)?;
+	let bridge = create_bridge(app_ref.clone(), &database).and_then(|_| future::ok(true)).collect();
+	let mut result = event_loop.run(bridge);
+	loop {
+		result = match &result {
+			&Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(ref e), _)), _)) if e.kind() == ::std::io::ErrorKind::BrokenPipe => {
+			    warn!("Connection to Parity has been severed, attempting to reconnect");
+				let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle()) {
+					Ok(app) => {
+						warn!("Connection has been re-established, restarting");
+						app
+					},
+					_ => {
+						::std::thread::sleep(::std::time::Duration::from_secs(1));
+						continue
+					},
+				};
+				let app_ref = Arc::new(app.as_ref());
+				let bridge = create_bridge(app_ref.clone(), &database).and_then(|_| future::ok(true)).collect();
+				event_loop.run(bridge)
+			},
+			&Err(ref e) => {
+				warn!("Bridge is down with {}, attempting to restart", e);
+				let bridge = create_bridge(app_ref.clone(), &database).and_then(|_| future::ok(true)).collect();
+				event_loop.run(bridge)
+			},
+			&Ok(_) => break,
+		};
+	}
 
 	Ok("Done".into())
 }
