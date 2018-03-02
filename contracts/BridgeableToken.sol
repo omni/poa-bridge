@@ -263,3 +263,10 @@ contract BridgeableToken is MintableToken {
         return true;
     }
 }
+
+// For test purposes
+contract Token is BridgeableToken {
+
+   function Token() {
+   }
+}
