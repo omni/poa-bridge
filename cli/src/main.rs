@@ -92,7 +92,7 @@ fn execute<S, I>(command: I) -> Result<String, Error> where I: IntoIterator<Item
 	loop {
 		result = match &result {
 			&Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(ref e), _)), _)) if e.kind() == ::std::io::ErrorKind::BrokenPipe => {
-			    warn!("Connection to Parity has been severed, attempting to reconnect");
+			    warn!("Connection to a node has been severed, attempting to reconnect");
 				let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle()) {
 					Ok(app) => {
 						warn!("Connection has been re-established, restarting");
