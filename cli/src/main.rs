@@ -67,7 +67,15 @@ fn execute<S, I>(command: I) -> Result<String, Error> where I: IntoIterator<Item
 	let mut event_loop = Core::new().unwrap();
 
 	info!(target: "bridge", "Establishing ipc connection");
-	let app = App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle())?;
+	let app = loop {
+		match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle()) {
+			Ok(app) => break app,
+			Err(e) => {
+				warn!("Can't establish an IPC connection, will attempt to reconnect: {:?}", e);
+				::std::thread::sleep(::std::time::Duration::from_secs(1));
+			},
+		}
+	};
 	let app_ref = Arc::new(app.as_ref());
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
