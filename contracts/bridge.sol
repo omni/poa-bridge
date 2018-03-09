@@ -348,6 +348,7 @@ contract ERC20 {
     function transfer(address to, uint256 value) public returns (bool);
     function transferFrom(address from, address to, uint256 value) public returns (bool);
     function allowance(address owner, address spender) public constant returns (uint256);
+    function balanceOf(address tokenOwner) public constant returns (uint balance);
 }
 
 contract ForeignBridge is BridgeDeploymentAddressStorage, 
