@@ -22,6 +22,14 @@ pub struct Database {
 	pub checked_withdraw_relay: u64,
 	/// Number of last block which has been checked for withdraw confirms.
 	pub checked_withdraw_confirm: u64,
+	// ID of the home network
+	pub home_network_id: u64,
+	// Nonce of the home account
+	pub home_account_nonce: u64,
+	// ID of the foreign network
+	pub foreign_network_id: u64,
+	// Nonce of the foreign account
+	pub foreign_account_nonce: u64,
 }
 
 impl str::FromStr for Database {

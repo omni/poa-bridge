@@ -156,6 +156,8 @@ mod load {
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
 		pub keystore: PathBuf,
+		//keep a path to the keystore file with the private key of the bridge authority.
+		pub authority_keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
