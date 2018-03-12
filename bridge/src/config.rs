@@ -38,8 +38,9 @@ impl Config {
 
 	fn from_load_struct(config: load::Config) -> Result<Config, Error> {
 		let result = Config {
-			home: ::from_load_struct(config.home)?,
+			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
+			keystore: config.keystore,
 			authorities: Authorities {
 				accounts: config.authorities.accounts,
 				required_signatures: config.authorities.required_signatures,
@@ -169,6 +170,7 @@ mod load {
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub password: PathBuf,
 	}
 
 	#[derive(Deserialize)]

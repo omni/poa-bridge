@@ -1,8 +1,11 @@
+extern crate web3;
+
 use std::path::{Path, PathBuf};
 use tokio_core::reactor::{Handle};
 use tokio_timer::Timer;
 use web3::Transport;
 use web3::transports::ipc::Ipc;
+use web3::futures::Future; // For RPC Support
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
@@ -38,6 +41,20 @@ impl Connections<Ipc> {
 		};
 		Ok(result)
 	}
+	// pub fn new_rpc<P: AsRef<Path>>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
+	// 	let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
+	// 	let web3 = web3::Web3::new(http);
+	// 	let accounts = web3.eth().accounts().wait().unwrap();
+	// 	println!("Accounts: {:?}", accounts);
+	//
+	// 	let home =
+	//
+	// 	let result = Connections {
+	// 		home,
+	// 		foreign,
+	// 	};
+	// 	Ok(result)
+	// }
 }
 
 impl<T: Transport> Connections<T> {
@@ -62,6 +79,17 @@ impl App<Ipc> {
 		};
 		Ok(result)
 	}
+	// pub fn new_rpc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+	// 	let result = App {
+	// 		config,
+	// 		database_path: database_path.as_ref().to_path_buf(),
+	// 		connections,
+	// 		home_bridge: home::HomeBridge::default(),
+	// 		foreign_bridge: foreign::ForeignBridge::default(),
+	// 		timer: Timer::default(),
+	// 	};
+	// 	Ok(accounts)
+	// }
 }
 
 impl<T: Transport> App<T> {
