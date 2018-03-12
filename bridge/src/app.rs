@@ -41,20 +41,22 @@ impl Connections<Ipc> {
 		};
 		Ok(result)
 	}
-	// pub fn new_rpc<P: AsRef<Path>>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
-	// 	let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
-	// 	let web3 = web3::Web3::new(http);
-	// 	let accounts = web3.eth().accounts().wait().unwrap();
-	// 	println!("Accounts: {:?}", accounts);
-	//
-	// 	let home =
-	//
-	// 	let result = Connections {
-	// 		home,
-	// 		foreign,
-	// 	};
-	// 	Ok(result)
-	// }
+	pub fn new_rpc<P: AsRef<Path>>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
+		let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
+		let web3 = web3::Web3::new(http);
+		// let accounts = web3.eth().accounts().wait().unwrap();
+		// println!("Accounts: {:?}", accounts);
+
+		let home = web3::Web3::new(http);
+
+		let foreign = web3::Web3::new(http);
+
+		let result = Connections {
+			home,
+			foreign,
+		};
+		Ok(result)
+	}
 }
 
 impl<T: Transport> Connections<T> {

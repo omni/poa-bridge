@@ -25,11 +25,11 @@ pub struct Database {
 	// ID of the home network
 	pub home_network_id: u64,
 	// Nonce of the home account
-	pub home_account_nonce: U256, // TODO: change nonce datatype
+	pub home_account_nonce: U256,
 	// ID of the foreign network
 	pub foreign_network_id: u64,
 	// Nonce of the foreign account
-	pub foreign_account_nonce: U256, // TODO: change nonce datatype
+	pub foreign_account_nonce: U256, 
 }
 
 impl str::FromStr for Database {
