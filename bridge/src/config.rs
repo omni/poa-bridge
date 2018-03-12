@@ -38,7 +38,7 @@ impl Config {
 
 	fn from_load_struct(config: load::Config) -> Result<Config, Error> {
 		let result = Config {
-			home: Node::from_load_struct(config.home)?,
+			home: ::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
 				accounts: config.authorities.accounts,
@@ -63,6 +63,8 @@ pub struct Node {
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	//  parameter password which contains path to the file with password to decrypt the corrsponding key file to extract the private key of the account responsible for signing transactions related this side of the bridge
+	pub password: PathBuf,
 }
 
 impl Node {
@@ -80,6 +82,7 @@ impl Node {
 			ipc: node.ipc,
 			rpc_host: node.rpc_host,
 			rpc_port: node.rpc_port,
+			password: node.password,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
@@ -151,6 +154,7 @@ mod load {
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
+		pub keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
