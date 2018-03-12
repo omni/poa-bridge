@@ -1,24 +1,28 @@
 estimated_gas_cost_of_withdraw = 100000
 
 [home]
-account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-ipc = "/Users/marek/Library/Application Support/io.parity.ethereum/jsonrpc.ipc"
+account = "0x009A2B631BD26B782fC47Bbc373A4fCE26E81048"
+ipc = "/Users/simonbermudez/Library/Application Support/io.parity.ethereum/jsonrpc.ipc"
 required_confirmations = 0
+rpc_host = "127.0.0.1"
+rpc_port = 8545
 
 [home.contract]
-bin = "contracts/EthereumBridge.bin"
+bin = "../truffle/contracts/compiled/HomeBridge.bin"
 
 [foreign]
-account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-ipc = "/Users/marek/Library/Application Support/io.parity.ethereum/jsonrpc.ipc"
+account = "0x009A2B631BD26B782fC47Bbc373A4fCE26E81048"
+ipc = "/Users/simonbermudez/Library/Application Support/io.parity.ethereum/jsonrpc.ipc"
 required_confirmations = 0
+rpc_host = "127.0.0.1"
+rpc_port = 8545
 
 [foreign.contract]
-bin = "contracts/KovanBridge.bin"
+bin = "../truffle/contracts/compiled/ForeignBridge.bin"
 
 [authorities]
 accounts = [
-	"0x006e27b6a72e1f34c626762f3c4761547aff1421",
+	"0x009A2B631BD26B782fC47Bbc373A4fCE26E81048",
 ]
 required_signatures = 1
 
