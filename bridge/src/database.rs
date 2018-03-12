@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::{io, str, fs, fmt};
 use std::io::{Read, Write};
-use web3::types::Address;
+use web3::types::{Address, U256};
 use toml;
 use error::{Error, ResultExt, ErrorKind};
 
@@ -25,11 +25,11 @@ pub struct Database {
 	// ID of the home network
 	pub home_network_id: u64,
 	// Nonce of the home account
-	pub home_account_nonce: u64,
+	pub home_account_nonce: U256, // TODO: change nonce datatype
 	// ID of the foreign network
 	pub foreign_network_id: u64,
 	// Nonce of the foreign account
-	pub foreign_account_nonce: u64,
+	pub foreign_account_nonce: U256, // TODO: change nonce datatype
 }
 
 impl str::FromStr for Database {
@@ -79,6 +79,10 @@ foreign_deploy = 101
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
 checked_withdraw_confirm = 121
+home_network_id = 1
+home_account_nonce = "0x0"
+foreign_network_id = 2
+foreign_account_nonce = "0x0"
 "#;
 
 		let expected = Database {
@@ -89,6 +93,10 @@ checked_withdraw_confirm = 121
 			checked_deposit_relay: 120,
 			checked_withdraw_relay: 121,
 			checked_withdraw_confirm: 121,
+			home_network_id: 1,
+			home_account_nonce: "0x0".into(),
+			foreign_network_id: 2,
+			foreign_account_nonce: "0x0".into(),
 		};
 
 		let database = toml.parse().unwrap();
