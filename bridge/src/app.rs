@@ -70,6 +70,18 @@ impl<T: Transport> Connections<T> {
 
 impl App<Ipc> {
 	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+		// @simonbdz I believe you want to insert the logic here. The description is confusing but I'm confident this is the correct logic for the parameters
+
+		/*if config.home.ipc {
+			// Assign result of new_ipc to connections
+		}else if config.home.rpc_host && config.home.rpc_port {
+			// Use new_rpc with host and port
+		}else if config.home.rpc_host {
+			// Same as above with default port
+		}else {
+			// Throw an error?
+		}*/
+
 		let connections = Connections::new_ipc(handle, &config.home.ipc, &config.foreign.ipc)?;
 		let result = App {
 			config,
