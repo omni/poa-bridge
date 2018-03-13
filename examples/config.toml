@@ -1,4 +1,5 @@
 estimated_gas_cost_of_withdraw = 100000
+keystore = "/path/to/keystore"
 
 [home]
 account = "0x009A2B631BD26B782fC47Bbc373A4fCE26E81048"

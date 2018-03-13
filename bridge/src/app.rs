@@ -9,6 +9,7 @@ use web3::futures::Future; // For RPC Support
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
+use std::string::String;
 
 pub struct App<T> where T: Transport {
 	pub config: Config,
@@ -41,22 +42,25 @@ impl Connections<Ipc> {
 		};
 		Ok(result)
 	}
-	pub fn new_rpc<P: AsRef<Path>>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
-		let (_eloop, http) = web3::transports::Http::new("http://localhost:8545").unwrap();
-		let web3 = web3::Web3::new(http);
-		// let accounts = web3.eth().accounts().wait().unwrap();
-		// println!("Accounts: {:?}", accounts);
 
-		let home = web3::Web3::new(http);
-
-		let foreign = web3::Web3::new(http);
-
-		let result = Connections {
-			home,
-			foreign,
-		};
-		Ok(result)
-	}
+	// pub fn new_rpc(config: Config) -> Result<Self, Error> {
+	// 	let (_eloop, http) = web3::transports::Http::new(&(config.home.rpc_host + &config.home.rpc_port.to_string())).unwrap();
+	// 	let home_web3 = web3::Web3::new(http);
+	// 	let (_eloop, http) = web3::transports::Http::new(&(config.foreign.rpc_host + &config.foreign.rpc_port.to_string())).unwrap();
+	// 	let foreign_web3 = web3::Web3::new(http);
+	// 	// let accounts = web3.eth().accounts().wait().unwrap();
+	// 	// println!("Accounts: {:?}", accounts);
+	//
+	// 	let home = home_web3;
+	//
+	// 	let foreign = foreign_web3;
+	//
+	// 	let result = Connections {
+	// 		home,
+	// 		foreign,
+	// 	};
+	// 	Ok(result)
+	// }
 }
 
 impl<T: Transport> Connections<T> {
