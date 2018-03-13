@@ -1,11 +1,15 @@
+extern crate web3;
+
 use std::path::{Path, PathBuf};
 use tokio_core::reactor::{Handle};
 use tokio_timer::Timer;
 use web3::Transport;
 use web3::transports::ipc::Ipc;
+use web3::futures::Future; // For RPC Support
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
+use std::string::String;
 
 pub struct App<T> where T: Transport {
 	pub config: Config,
@@ -38,6 +42,25 @@ impl Connections<Ipc> {
 		};
 		Ok(result)
 	}
+
+	// pub fn new_rpc(config: Config) -> Result<Self, Error> {
+	// 	let (_eloop, http) = web3::transports::Http::new(&(config.home.rpc_host + &config.home.rpc_port.to_string())).unwrap();
+	// 	let home_web3 = web3::Web3::new(http);
+	// 	let (_eloop, http) = web3::transports::Http::new(&(config.foreign.rpc_host + &config.foreign.rpc_port.to_string())).unwrap();
+	// 	let foreign_web3 = web3::Web3::new(http);
+	// 	// let accounts = web3.eth().accounts().wait().unwrap();
+	// 	// println!("Accounts: {:?}", accounts);
+	//
+	// 	let home = home_web3;
+	//
+	// 	let foreign = foreign_web3;
+	//
+	// 	let result = Connections {
+	// 		home,
+	// 		foreign,
+	// 	};
+	// 	Ok(result)
+	// }
 }
 
 impl<T: Transport> Connections<T> {
@@ -51,6 +74,18 @@ impl<T: Transport> Connections<T> {
 
 impl App<Ipc> {
 	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+		// @simonbdz I believe you want to insert the logic here. The description is confusing but I'm confident this is the correct logic for the parameters
+
+		/*if config.home.ipc {
+			// Assign result of new_ipc to connections
+		}else if config.home.rpc_host && config.home.rpc_port {
+			// Use new_rpc with host and port
+		}else if config.home.rpc_host {
+			// Same as above with default port
+		}else {
+			// Throw an error?
+		}*/
+
 		let connections = Connections::new_ipc(handle, &config.home.ipc, &config.foreign.ipc)?;
 		let result = App {
 			config,
@@ -62,6 +97,17 @@ impl App<Ipc> {
 		};
 		Ok(result)
 	}
+	// pub fn new_rpc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+	// 	let result = App {
+	// 		config,
+	// 		database_path: database_path.as_ref().to_path_buf(),
+	// 		connections,
+	// 		home_bridge: home::HomeBridge::default(),
+	// 		foreign_bridge: foreign::ForeignBridge::default(),
+	// 		timer: Timer::default(),
+	// 	};
+	// 	Ok(accounts)
+	// }
 }
 
 impl<T: Transport> App<T> {

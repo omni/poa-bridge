@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::{io, str, fs, fmt};
 use std::io::{Read, Write};
-use web3::types::Address;
+use web3::types::{Address, U256};
 use toml;
 use error::{Error, ResultExt, ErrorKind};
 
@@ -22,6 +22,14 @@ pub struct Database {
 	pub checked_withdraw_relay: u64,
 	/// Number of last block which has been checked for withdraw confirms.
 	pub checked_withdraw_confirm: u64,
+	// ID of the home network
+	pub home_network_id: u64,
+	// Nonce of the home account
+	pub home_account_nonce: U256,
+	// ID of the foreign network
+	pub foreign_network_id: u64,
+	// Nonce of the foreign account
+	pub foreign_account_nonce: U256, 
 }
 
 impl str::FromStr for Database {
@@ -71,6 +79,10 @@ foreign_deploy = 101
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
 checked_withdraw_confirm = 121
+home_network_id = 1
+home_account_nonce = "0x0"
+foreign_network_id = 2
+foreign_account_nonce = "0x0"
 "#;
 
 		let expected = Database {
@@ -81,6 +93,10 @@ checked_withdraw_confirm = 121
 			checked_deposit_relay: 120,
 			checked_withdraw_relay: 121,
 			checked_withdraw_confirm: 121,
+			home_network_id: 1,
+			home_account_nonce: "0x0".into(),
+			foreign_network_id: 2,
+			foreign_account_nonce: "0x0".into(),
 		};
 
 		let database = toml.parse().unwrap();

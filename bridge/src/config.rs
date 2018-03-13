@@ -19,6 +19,8 @@ pub struct Config {
 	pub authorities: Authorities,
 	pub txs: Transactions,
 	pub estimated_gas_cost_of_withdraw: u32,
+	//public keep the path to the directory where files with private keys are stored, this parameter is not subordinated to any section of the configuration file since it is common for entire bridge
+	pub keystore: PathBuf,
 }
 
 impl Config {
@@ -38,6 +40,7 @@ impl Config {
 		let result = Config {
 			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
+			keystore: config.keystore,
 			authorities: Authorities {
 				accounts: config.authorities.accounts,
 				required_signatures: config.authorities.required_signatures,
@@ -55,9 +58,14 @@ pub struct Node {
 	pub account: Address,
 	pub contract: ContractConfig,
 	pub ipc: PathBuf,
+	// RPC support in the node structure
+	pub rpc_host: String, //IP Address Type
+	pub rpc_port: i16, //16 bit Integer from 0 to 65535
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	//  parameter password which contains path to the file with password to decrypt the corrsponding key file to extract the private key of the account responsible for signing transactions related this side of the bridge
+	pub password: PathBuf,
 }
 
 impl Node {
@@ -73,6 +81,9 @@ impl Node {
 				}
 			},
 			ipc: node.ipc,
+			rpc_host: node.rpc_host,
+			rpc_port: node.rpc_port,
+			password: node.password,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
@@ -144,6 +155,9 @@ mod load {
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
+		pub keystore: PathBuf,
+		//keep a path to the keystore file with the private key of the bridge authority.
+		pub authority_keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -152,9 +166,13 @@ mod load {
 		pub account: Address,
 		pub contract: ContractConfig,
 		pub ipc: PathBuf,
+		//RPC support
+		pub rpc_host: String,
+		pub rpc_port: i16,
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub password: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -202,6 +220,8 @@ estimated_gas_cost_of_withdraw = 100000
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = "/home.ipc"
+rpc_host = "0.0.0.0"
+rpc_port = "8545"
 poll_interval = 2
 required_confirmations = 100
 
@@ -211,6 +231,8 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = "/foreign.ipc"
+rpc_host = "0.0.0.0"
+rpc_port = "8545"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -232,6 +254,8 @@ home_deploy = { gas = 20 }
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
 				ipc: "/home.ipc".into(),
+				rpc_host: "0.0.0.0".into(),
+				rpc_port: "8545".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -245,6 +269,8 @@ home_deploy = { gas = 20 }
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				ipc: "/foreign.ipc".into(),
+				rpc_host: "0.0.0.0".into(),
+				rpc_port: "8545".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
@@ -277,6 +303,8 @@ estimated_gas_cost_of_withdraw = 200000000
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = ""
+rpc_host = "0.0.0.0"
+rpc_port = "8545"
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -284,6 +312,8 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = ""
+rpc_host = "0.0.0.0"
+rpc_port = "8545"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -301,6 +331,8 @@ required_signatures = 2
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
 				ipc: "".into(),
+				rpc_host: "0.0.0.0".into(),
+				rpc_port: "8545".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -311,6 +343,8 @@ required_signatures = 2
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
 				ipc: "".into(),
+				rpc_host: "0.0.0.0".into(),
+				rpc_port: "8545".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use futures::{Future, Poll, future};
 use web3::Transport;
 use web3::confirm::SendTransactionWithConfirmation;
-use web3::types::{TransactionRequest};
+use web3::types::{TransactionRequest, U256};
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind};
@@ -105,6 +105,11 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
 						checked_withdraw_relay: test_receipt.block_number.low_u64(),
 						checked_withdraw_confirm: test_receipt.block_number.low_u64(),
+						// TODO: where I can get this data
+						home_network_id: main_receipt.block_number.low_u64(),
+						home_account_nonce: main_receipt.block_number.into(),
+						foreign_network_id: test_receipt.block_number.low_u64(),
+						foreign_account_nonce: test_receipt.block_number.into(),
 					};
 					return Ok(Deployed::New(database).into())
 				},
