@@ -10,6 +10,7 @@ use {toml};
 const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 5;
+const DEFAULT_RPC_PORT: u16 = 8545;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -60,6 +61,9 @@ pub struct Node {
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	pub rpc_host: String,
+	pub rpc_port: u16,
+	pub password: PathBuf,
 }
 
 impl Node {
@@ -78,6 +82,9 @@ impl Node {
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
+			rpc_host: node.rpc_host.unwrap(),
+			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+			password: node.password,
 		};
 
 		Ok(result)
@@ -158,6 +165,9 @@ mod load {
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub rpc_host: Option<String>,
+		pub rpc_port: Option<u16>,
+		pub password: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -209,6 +219,9 @@ account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = "/home.ipc"
 poll_interval = 2
 required_confirmations = 100
+rpc_host = "127.0.0.1"
+rpc_port = 8545
+password = "/password.txt"
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -216,6 +229,9 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = "/foreign.ipc"
+rpc_host = "127.0.0.1"
+rpc_port = 8545
+password = "/password.txt"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -243,6 +259,9 @@ home_deploy = { gas = 20 }
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 100,
+				rpc_host: "127.0.0.1".into(),
+				rpc_port: 8545,
+				password: "/password.txt".into()
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -253,6 +272,9 @@ home_deploy = { gas = 20 }
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "127.0.0.1".into(),
+				rpc_port: 8545,
+				password: "/password.txt".into()
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -285,6 +307,8 @@ keystore = "/keys/"
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = ""
+rpc_host = ""
+password = ""
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -292,6 +316,8 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = ""
+rpc_host = ""
+password = ""
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -315,6 +341,9 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "".into(),
+				rpc_port: 8545,
+				password: "".into(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -325,6 +354,9 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "".into(),
+				rpc_port: 8545,
+				password: "".into(),
 			},
 			authorities: Authorities {
 				accounts: vec![

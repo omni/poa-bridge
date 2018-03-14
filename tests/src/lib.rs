@@ -123,6 +123,9 @@ macro_rules! test_app_stream {
 					poll_interval: Duration::from_secs(0),
 					request_timeout: Duration::from_secs(5),
 					required_confirmations: $home_conf,
+					rpc_host: "".into(),
+					rpc_port: 8545,
+					password: "".into(),
 				},
 				foreign: Node {
 					account: $foreign_acc.parse().unwrap(),
@@ -133,6 +136,9 @@ macro_rules! test_app_stream {
 					poll_interval: Duration::from_secs(0),
 					request_timeout: Duration::from_secs(5),
 					required_confirmations: $foreign_conf,
+					rpc_host: "".into(),
+					rpc_port: 8545,
+					password: "".into(),
 				},
 				authorities: Authorities {
 					accounts: $authorities_accs.iter().map(|a: &&str| a.parse().unwrap()).collect(),
