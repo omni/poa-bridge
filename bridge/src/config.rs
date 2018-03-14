@@ -19,6 +19,7 @@ pub struct Config {
 	pub authorities: Authorities,
 	pub txs: Transactions,
 	pub estimated_gas_cost_of_withdraw: u32,
+	pub keystore: PathBuf,
 }
 
 impl Config {
