@@ -45,6 +45,7 @@ impl Config {
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
+			keystore: config.keystore,
 		};
 
 		Ok(result)
@@ -145,6 +146,7 @@ mod load {
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
+		pub keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -199,6 +201,8 @@ mod tests {
 	fn load_full_setup_from_str() {
 		let toml = r#"
 estimated_gas_cost_of_withdraw = 100000
+
+keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -259,6 +263,7 @@ home_deploy = { gas = 20 }
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 100_000,
+			keystore: "/keys/".into(),
 		};
 
 		expected.txs.home_deploy = TransactionConfig {
@@ -274,6 +279,8 @@ home_deploy = { gas = 20 }
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
 estimated_gas_cost_of_withdraw = 200000000
+
+keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -328,6 +335,7 @@ required_signatures = 2
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 200_000_000,
+			keystore: "/keys/".into(),
 		};
 
 		let config = Config::load_from_str(toml).unwrap();

@@ -139,6 +139,7 @@ macro_rules! test_app_stream {
 					required_signatures: $signatures,
 				},
 				estimated_gas_cost_of_withdraw: 100_000,
+				keystore: "".into(),
 			};
 
 			let app = App {
