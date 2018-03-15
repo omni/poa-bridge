@@ -19,8 +19,40 @@
 # truffle stuff
 truffle/build
 
+examples/parity_ora/signer
+examples/parity_ora/cache
+examples/parity_ora/chains
+examples/parity_ora/dapps
+examples/parity_ora/network
+examples/parity_ora-2/signer
+examples/parity_ora-2/cache
+examples/parity_ora-2/chains
+examples/parity_ora-2/dapps
+examples/parity_ora-2/network
+examples/parity_POA/cache
+examples/parity_POA/chains
+examples/parity_POA/dapps
+examples/parity_POA/network
+examples/parity_kov/cache
+examples/parity_kov/chains
+examples/parity_kov/dapps
+examples/parity_kov/network
+examples/parity_kov/keys/kovan/dapps_history.json
+examples/parity_kov/keys/kovan/address_book.json
+examples/parity_rop/cache
+examples/parity_rop/chains
+examples/parity_rop/dapps
+examples/parity_rop/network
+examples/parity_rop/keys/kovan/dapps_history.json
+examples/parity_rop/keys/kovan/address_book.json
+examples/parity_ora/keys/OraclesPoA/dapps_history.json
+examples/parity_ora/keys/OraclesPoA/address_book.json
+examples/parity_ora-2/keys/OraclesPoA/dapps_history.json
+examples/parity_ora-2/keys/OraclesPoA/address_book.json
+jsTests/node_modules/
+examples/db.toml
+jsTests/package-lock.json
 node_modules
-
 compiled_contracts
 
 integration-tests/tmp
