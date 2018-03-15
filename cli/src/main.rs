@@ -8,6 +8,7 @@ extern crate tokio_core;
 extern crate log;
 extern crate env_logger;
 extern crate bridge;
+extern crate ctrlc;
 
 use std::{env, fs, io};
 use std::sync::Arc;
@@ -24,6 +25,7 @@ use bridge::web3;
 
 const ERR_UNKNOWN: i32 = 1;
 const ERR_IO_ERROR: i32 = 2;
+const ERR_SHUTDOWN_REQUESTED: i32 = 3;
 const ERR_CANNOT_CONNECT: i32 = 10;
 const ERR_CONNECTION_LOST: i32 = 11;
 const ERR_BRIDGE_CRASH: i32 = 11;
@@ -75,9 +77,19 @@ pub struct Args {
 	arg_database: PathBuf,
 }
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 fn main() {
 	let _ = env_logger::init();
-	let result = execute(env::args());
+
+	let running = Arc::new(AtomicBool::new(true));
+
+	let r = running.clone();
+	ctrlc::set_handler(move || {
+		r.store(false, Ordering::SeqCst);
+	}).expect("Error setting Ctrl-C handler");
+
+	let result = execute(env::args(), running);
 
 	match result {
 		Ok(s) => println!("{}", s),
@@ -94,7 +106,7 @@ fn print_err(err: Error) {
 	println!("{}", message);
 }
 
-fn execute<S, I>(command: I) -> Result<String, UserFacingError> where I: IntoIterator<Item=S>, S: AsRef<str> {
+fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFacingError> where I: IntoIterator<Item=S>, S: AsRef<str> {
 	info!(target: "bridge", "Parsing cli arguments");
 	let args: Args = Docopt::new(USAGE)
 		.and_then(|d| d.argv(command).deserialize()).map_err(|e| e.to_string())?;
@@ -106,7 +118,7 @@ fn execute<S, I>(command: I) -> Result<String, UserFacingError> where I: IntoIte
 	let mut event_loop = Core::new().unwrap();
 
 	info!(target: "bridge", "Establishing ipc connection");
-	let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle()) {
+	let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running) {
 			Ok(app) => app,
 			Err(e) => {
 				warn!("Can't establish an IPC connection: {:?}", e);
@@ -144,6 +156,10 @@ fn execute<S, I>(command: I) -> Result<String, UserFacingError> where I: IntoIte
 					return Err((ERR_IO_ERROR, e.into()).into());
 				}
 			},
+		    Err(e @ Error(ErrorKind::ShutdownRequested, _)) => {
+				info!("Shutdown requested, terminating");
+				return Err((ERR_SHUTDOWN_REQUESTED, e.into()).into());
+			}
 			Err(e) => {
 				warn!("Bridge crashed with {}", e);
 				return Err((ERR_BRIDGE_CRASH, e).into());

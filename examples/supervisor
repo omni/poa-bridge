@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+while true; do
+        "$@"
+        if [ $? == 3 ]; then
+                # shutdown requested by user
+                echo "Shutting down"
+                exit 0
+        fi
+        echo "Restarting after 1 second"
+        sleep 1
+done
