@@ -10,6 +10,7 @@ use {toml};
 const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 5;
+const DEFAULT_SIMULTANEOUS_REQUESTS_PER_BATCH: usize = 2;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -58,6 +59,7 @@ pub struct Node {
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	pub simultaneous_requests_per_batch: usize,
 }
 
 impl Node {
@@ -76,6 +78,7 @@ impl Node {
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
+			simultaneous_requests_per_batch: node.simultaneous_requests_per_batch.unwrap_or(DEFAULT_SIMULTANEOUS_REQUESTS_PER_BATCH),
 		};
 
 		Ok(result)
@@ -155,6 +158,7 @@ mod load {
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub simultaneous_requests_per_batch: Option<usize>,
 	}
 
 	#[derive(Deserialize)]

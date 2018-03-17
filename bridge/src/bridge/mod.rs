@@ -1,3 +1,5 @@
+mod batch;
+mod sequentially;
 mod deploy;
 mod deposit_relay;
 mod withdraw_confirm;
@@ -97,7 +99,7 @@ pub struct Bridge<T: Transport, F> {
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
+impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> where T::Out: 'static {
 	type Item = ();
 	type Error = Error;
 

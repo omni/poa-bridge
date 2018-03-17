@@ -1,16 +1,16 @@
 use std::sync::Arc;
-use futures::{Future, Stream, Poll};
-use futures::future::{JoinAll, join_all};
-use tokio_timer::Timeout;
+use futures::{Future, Stream, Poll, future};
 use web3::Transport;
 use web3::types::{TransactionRequest, H256, Address, Bytes, Log, FilterBuilder};
 use ethabi::RawLog;
-use api::{LogStream, self, ApiCall};
+use api::{LogStream, self};
 use error::{Error, Result};
 use database::Database;
 use contracts::{home, foreign};
 use util::web3_filter;
 use app::App;
+use super::batch::batch;
+use super::sequentially::sequentially;
 
 fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
 	let filter = home.events().deposit().create_filter();
@@ -29,12 +29,12 @@ fn deposit_relay_payload(home: &home::HomeBridge, foreign: &foreign::ForeignBrid
 }
 
 /// State of deposits relay.
-enum DepositRelayState<T: Transport> {
+enum DepositRelayState {
 	/// Deposit relay is waiting for logs.
 	Wait,
 	/// Relaying deposits in progress.
 	RelayDeposits {
-		future: JoinAll<Vec<Timeout<ApiCall<H256, T::Out>>>>,
+		future: Box<Future<Item = Vec<H256>, Error = Error>>,
 		block: u64,
 	},
 	/// All deposits till given block has been relayed.
@@ -60,11 +60,11 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 pub struct DepositRelay<T: Transport> {
 	app: Arc<App<T>>,
 	logs: LogStream<T>,
-	state: DepositRelayState<T>,
+	state: DepositRelayState,
 	foreign_contract: Address,
 }
 
-impl<T: Transport> Stream for DepositRelay<T> {
+impl<T: Transport> Stream for DepositRelay<T> where T::Out: 'static {
 	type Item = u64;
 	type Error = Error;
 
@@ -73,8 +73,10 @@ impl<T: Transport> Stream for DepositRelay<T> {
 			let next_state = match self.state {
 				DepositRelayState::Wait => {
 					let item = try_stream!(self.logs.poll());
-					info!("got {} new deposits to relay", item.logs.len());
-					let deposits = item.logs
+					let len = item.logs.len();
+					info!("got {} new deposits to relay", len);
+
+					let mut deposits0 = item.logs
 						.into_iter()
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
 						.collect::<Result<Vec<_>>>()?
@@ -93,12 +95,14 @@ impl<T: Transport> Stream for DepositRelay<T> {
 							self.app.timer.timeout(
 								api::send_transaction(&self.app.connections.foreign, request),
 								self.app.config.foreign.request_timeout)
-						})
-						.collect::<Vec<_>>();
+						});
 
-					info!("relaying {} deposits", deposits.len());
+
+					let mut batches = batch(deposits0,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
+
+					info!("relaying {} deposits", len);
 					DepositRelayState::RelayDeposits {
-						future: join_all(deposits),
+						future: sequentially(batches),
 						block: item.to,
 					}
 				},
