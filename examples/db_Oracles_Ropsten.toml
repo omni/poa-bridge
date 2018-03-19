@@ -1,0 +1,7 @@
+home_contract_address = "0xcfaf46d62b0f4153390745a05aed55c535632ef3"
+foreign_contract_address = "0xbbd4d3811f0a1a94aa3f61f425ee5c037fd6d438"
+home_deploy = 256826
+foreign_deploy = 1970842
+checked_deposit_relay = 256826
+checked_withdraw_relay = 2030188
+checked_withdraw_confirm = 2030188

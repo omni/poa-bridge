@@ -1,0 +1,28 @@
+[home]
+account = "0xdd0bb0e2a1594240fed0c2f2c17c1e9ab4f87126"
+ipc = "./examples/parity_ora/jsonrpc.ipc"
+required_confirmations = 0
+request_timeout = 360
+
+[home.contract]
+bin = "contracts/HomeBridge.bin"
+
+[foreign]
+account = "0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
+ipc = "./examples/parity_kov/jsonrpc.ipc"
+required_confirmations = 0
+request_timeout = 360
+
+[foreign.contract]
+bin = "contracts/ForeignBridge.bin"
+
+[authorities]
+accounts = [
+	"0x00dB9af45C6f241432F2cBE412c6969cB7778d98"
+]
+required_signatures = 1
+
+[transactions]
+home_deploy = { gas = 3000000, gas_price = 21000000000 }
+foreign_deploy = { gas = 3000000, gas_price = 21000000000 }
+deposit_relay = { gas = 200000, gas_price = 21000000000 }

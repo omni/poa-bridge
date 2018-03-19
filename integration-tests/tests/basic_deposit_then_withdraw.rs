@@ -10,6 +10,11 @@ extern crate ethereum_types;
 extern crate web3;
 extern crate tokio_core;
 extern crate bridge;
+extern crate ethabi;
+#[macro_use] extern crate ethabi_contract;
+#[macro_use] extern crate ethabi_derive;
+
+use_contract!(token, "Token", "../compiled_contracts/Token.abi");
 
 use std::process::Command;
 use std::time::Duration;
@@ -21,6 +26,9 @@ use tokio_core::reactor::Core;
 use web3::transports::ipc::Ipc;
 use web3::api::Namespace;
 use ethereum_types::{Address, U256};
+
+extern crate rustc_hex;
+use rustc_hex::FromHex;
 
 const TMP_PATH: &str = "tmp";
 
@@ -165,6 +173,132 @@ fn test_basic_deposit_then_withdraw() {
 	let home_contract_address = "0xebd3944af37ccc6b67ff61239ac4fef229c8f69f";
 	let foreign_contract_address = "0xebd3944af37ccc6b67ff61239ac4fef229c8f69f";
 
+	// connect to foreign and home via IPC
+	let mut event_loop = Core::new().unwrap();
+	let foreign_transport = Ipc::with_event_loop("foreign.ipc", &event_loop.handle())
+		.expect("failed to connect to foreign.ipc");
+	let foreign = bridge::contracts::foreign::ForeignBridge::default();
+	let foreign_eth = web3::api::Eth::new(foreign_transport);
+	let home_transport = Ipc::with_event_loop("home.ipc", &event_loop.handle())
+		.expect("failed to connect to home.ipc");
+	let home_eth = web3::api::Eth::new(home_transport);
+
+	// deploy the token
+	println!("== deploy the token");
+	let token_constructor = token::Token::default().constructor(include_str!("../../compiled_contracts/Token.bin").from_hex().unwrap());
+	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
+		from: address_from_str(authority_address),
+		to: None,
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(token_constructor.into()),
+		condition: None,
+		nonce: None,
+	});
+	let tx = event_loop.run(future).unwrap();
+	let future = foreign_eth.transaction_receipt(tx);
+	let token_receipt = event_loop.run(future).unwrap();
+	let token_addr = token_receipt.unwrap().contract_address.unwrap();
+
+	// check token validity
+    let is_token = token::Token::default().functions().is_token().input();
+	let future = foreign_eth.call(web3::types::CallRequest {
+		from: None,
+		to: token_addr,
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(web3::types::Bytes(is_token)),
+	}, None);
+
+	event_loop.run(future).unwrap();
+
+	// set the token
+	println!("== set the token");
+	let set_token = foreign.functions().set_token_address().input(token_addr);
+	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
+		from: address_from_str(authority_address),
+		to: Some(address_from_str(foreign_contract_address)),
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(web3::types::Bytes(set_token)),
+		condition: None,
+		nonce: None,
+	});
+	event_loop.run(future).unwrap();
+
+	// check that the token has been set correctly
+	println!("== check token setup");
+	let token = foreign.functions().erc20token().input();
+	let future = foreign_eth.call(web3::types::CallRequest {
+		from: None,
+		to: address_from_str(foreign_contract_address),
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(web3::types::Bytes(token)),
+	}, None);
+
+	let response = event_loop.run(future).unwrap();
+	assert_eq!(Address::from(&response.0.as_slice()[(response.0.len()-20)..]), token_addr);
+	let erc20 = bridge::contracts::erc20::ERC20::default();
+
+	// fund the contract
+	println!("== set mint agent");
+	let set_mint_agent = token::Token::default().functions().set_mint_agent().input(address_from_str(authority_address), true);
+	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
+		from: address_from_str(authority_address),
+		to: Some(token_addr),
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(web3::types::Bytes(set_mint_agent)),
+		condition: None,
+		nonce: None,
+	});
+	event_loop.run(future).unwrap();
+
+	println!("== fund contract through minting");
+	let fund = token::Token::default().functions().mint().input(address_from_str(foreign_contract_address), ::std::u32::MAX);
+	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
+		from: address_from_str(authority_address),
+		to: Some(token_addr),
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(web3::types::Bytes(fund)),
+		condition: None,
+		nonce: None,
+	});
+	event_loop.run(future).unwrap();
+
+	println!("== check token supply");
+	let supply_payload = token::Token::default().functions().total_supply().input();
+	let supply_call = web3::types::CallRequest {
+			from: None,
+			to: token_addr,
+			gas: None,
+			gas_price: None,
+			value: None,
+			data: Some(web3::types::Bytes(supply_payload)),
+	};
+	assert!(!U256::from(event_loop.run(foreign_eth.call(supply_call, None)).unwrap().0.as_slice()).is_zero());
+
+
+	println!("== check contract balance");
+	let balance_payload = erc20.functions().balance_of().input(address_from_str(foreign_contract_address));
+	let balance_call = web3::types::CallRequest {
+			from: None,
+			to: token_addr,
+			gas: None,
+			gas_price: None,
+			value: None,
+			data: Some(web3::types::Bytes(balance_payload)),
+	};
+	assert!(!U256::from(event_loop.run(foreign_eth.call(balance_call, None)).unwrap().0.as_slice()).is_zero());
+
 	println!("\nuser deposits ether into HomeBridge\n");
 
 	// TODO [snd] use rpc client here instead of curl
@@ -184,48 +318,27 @@ fn test_basic_deposit_then_withdraw() {
 	println!("\ndeposit into home sent. give it plenty of time to get mined and relayed\n");
 	thread::sleep(Duration::from_millis(10000));
 
-	// connect to foreign and home via IPC
-	let mut event_loop = Core::new().unwrap();
-	let foreign_transport = Ipc::with_event_loop("foreign.ipc", &event_loop.handle())
-		.expect("failed to connect to foreign.ipc");
-	let foreign = bridge::contracts::foreign::ForeignBridge::default();
-	let foreign_eth = web3::api::Eth::new(foreign_transport);
-	let home_transport = Ipc::with_event_loop("home.ipc", &event_loop.handle())
-		.expect("failed to connect to home.ipc");
-	let home_eth = web3::api::Eth::new(home_transport);
-
-	// totalSupply on ForeignBridge should have increased
-	let total_supply_payload = foreign.functions().total_supply().input();
-
-	let future = foreign_eth.call(web3::types::CallRequest{
-		from: None,
-		to: address_from_str(foreign_contract_address),
-		gas: None,
-		gas_price: None,
-		value: None,
-		data: Some(web3::types::Bytes(total_supply_payload)),
-	}, None);
-
-	let response = event_loop.run(future).unwrap();
-	assert_eq!(
-		U256::from(response.0.as_slice()),
-		U256::from(100000),
-		"totalSupply on ForeignBridge should have increased");
-
 	// balance on ForeignBridge should have increased
-	let balance_payload = foreign.functions().balance_of().input(Address::from(user_address));
+	let balance_payload = erc20.functions().balance_of().input(Address::from(user_address));
+	let balance_call = web3::types::CallRequest {
+			from: None,
+			to: token_addr,
+			gas: None,
+			gas_price: None,
+			value: None,
+			data: Some(web3::types::Bytes(balance_payload)),
+	};
+	let balance = loop {
+		thread::sleep(Duration::from_secs(1));
+		let future = foreign_eth.call(balance_call.clone(), None);
+		let response = event_loop.run(future).unwrap();
+	    let balance = U256::from(response.0.as_slice());
 
-	let future = foreign_eth.call(web3::types::CallRequest{
-		from: None,
-		to: address_from_str(foreign_contract_address),
-		gas: None,
-		gas_price: None,
-		value: None,
-		data: Some(web3::types::Bytes(balance_payload)),
-	}, None);
-
-	let response = event_loop.run(future).unwrap();
-	let balance = U256::from(response.0.as_slice());
+		// wait until balance is above zero
+		if balance > U256::from(0) {
+			break balance;
+		}
+	};
 	assert_eq!(
 		balance,
 		U256::from(100000),
@@ -233,13 +346,15 @@ fn test_basic_deposit_then_withdraw() {
 
 	println!("\nconfirmed that deposit reached foreign\n");
 
-	println!("\nuser executes ForeignBridge.transferHomeViaRelay\n");
+	println!("\nuser executes ForeignBridge.receiveApproval(\n");
 	let transfer_payload = foreign.functions()
-		.transfer_home_via_relay()
+		.receive_approval()
 		.input(
 			Address::from(user_address),
 			U256::from(100000),
-			U256::from(0));
+            token_addr, // FIXME: doesn't seem to be used
+            vec![], // FIXME: doesn't seem to be used either
+		);
 	let future = foreign_eth.send_transaction(web3::types::TransactionRequest{
 		from: address_from_str(user_address),
 		to: Some(address_from_str(foreign_contract_address)),
@@ -252,7 +367,7 @@ fn test_basic_deposit_then_withdraw() {
 	});
 	event_loop.run(future).unwrap();
 
-	println!("\nForeignBridge.transferHomeViaRelay transaction sent. give it plenty of time to get mined and relayed\n");
+	println!("\nForeignBridge.receiveApproval sent. give it plenty of time to get mined and relayed\n");
 	thread::sleep(Duration::from_millis(10000));
 
 	// test that withdraw completed

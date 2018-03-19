@@ -5,7 +5,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate toml;
-extern crate web3;
+pub extern crate web3;
 extern crate tokio_core;
 extern crate tokio_timer;
 #[macro_use]
