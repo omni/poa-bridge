@@ -6,7 +6,7 @@ use web3::transports::ipc::Ipc;
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
-use web3::transports::http::Http;
+//use web3::transports::http::Http;
 
 pub struct App<T> where T: Transport {
 	pub config: Config,
@@ -41,6 +41,7 @@ impl Connections<Ipc> {
 	}
 }
 
+/*
 impl Connections<Http> {
 	pub fn new_http<P: String>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
 
@@ -60,7 +61,7 @@ impl Connections<Http> {
 		Ok(result)
 	}
 }
-
+*/
 impl<T: Transport> Connections<T> {
 	pub fn as_ref(&self) -> Connections<&T> {
 		Connections {
@@ -84,7 +85,7 @@ impl App<Ipc> {
 		Ok(result)
 	}
 }
-
+/*
 impl App<Http> {
 	pub fn new_http<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
 		let mut home_url:String = config.home.rpc_host.to_owned();
@@ -110,7 +111,7 @@ impl App<Http> {
 		Ok(result)
 	}
 }
-
+*/
 impl<T: Transport> App<T> {
 	pub fn as_ref(&self) -> App<&T> {
 		App {

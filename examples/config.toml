@@ -1,22 +1,30 @@
 estimated_gas_cost_of_withdraw = 100000
 
+keystore = "/keys/"
+
 [home]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
 ipc = "/home/emack/.local/share/io.parity.ethereum/jsonrpc.ipc"
 required_confirmations = 0
+rpc_host = ""
+rpc_port = 8545
+password = ""
 
 [home.contract]
 #bin = "contracts/EthereumBridge.bin"
-bin = "contracts/HomeBridge.bin"
+bin = "compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
 ipc = "/home/emack/.local/share/io.parity.ethereum/jsonrpc.ipc"
 required_confirmations = 0
+rpc_host = ""
+rpc_port = 8545
+password = ""
 
 [foreign.contract]
 #bin = "contracts/KovanBridge.bin"
-bin = "contracts/ForeignBridge.bin"
+bin = "compiled_contracts/ForeignBridge.bin"
 
 [authorities]
 accounts = [
