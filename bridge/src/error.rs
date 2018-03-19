@@ -19,6 +19,7 @@ error_chain! {
 	}
 
 	errors {
+	    ShutdownRequested
 		// api timeout
 		Timeout(request: &'static str) {
 			description("Request timeout"),

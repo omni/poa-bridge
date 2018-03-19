@@ -10,7 +10,7 @@ use futures::{Stream, Poll, Async};
 use web3::Transport;
 use app::App;
 use database::Database;
-use error::{Error, Result};
+use error::{Error, ErrorKind, Result};
 
 pub use self::deploy::{Deploy, Deployed, create_deploy};
 pub use self::deposit_relay::{DepositRelay, create_deposit_relay};
@@ -82,6 +82,7 @@ pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<
 		withdraw_confirm: create_withdraw_confirm(app.clone(), init),
 		state: BridgeStatus::Wait,
 		backend,
+		running: app.running.clone(),
 	}
 }
 
@@ -91,7 +92,10 @@ pub struct Bridge<T: Transport, F> {
 	withdraw_confirm: WithdrawConfirm<T>,
 	state: BridgeStatus,
 	backend: F,
+	running: Arc<AtomicBool>,
 }
+
+use std::sync::atomic::{AtomicBool, Ordering};
 
 impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 	type Item = ();
@@ -101,6 +105,9 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 		loop {
 			let next_state = match self.state {
 				BridgeStatus::Wait => {
+					if !self.running.load(Ordering::SeqCst) {
+						return Err(ErrorKind::ShutdownRequested.into())
+					}
 					let d_relay = try_bridge!(self.deposit_relay.poll()).map(BridgeChecked::DepositRelay);
 					let w_relay = try_bridge!(self.withdraw_relay.poll()).map(BridgeChecked::WithdrawRelay);
 					let w_confirm = try_bridge!(self.withdraw_confirm.poll()).map(BridgeChecked::WithdrawConfirm);
