@@ -1,0 +1,10 @@
+[package]
+name = "test_bridge_stuff"
+version = "0.1.0"
+authors = ["Edward Mack <ed@edwardmack.com>"]
+
+[[bin]]
+name = "bridge"
+path = "src/main.rs"
+
+[dependencies]
