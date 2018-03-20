@@ -309,7 +309,7 @@ fn test_stuff() {
 		.arg("--data").arg(format!(r#"{{"jsonrpc":"2.0","method":"eth_sendTransaction","params":[{{
 			"from": "{}",
 			"to": "{}",
-			"value": "0x186a1"
+			"value": "0x186a0"
 		}}],"id":0}}"#, user_address, home_contract_address))
 		.arg("-H").arg("Content-Type: application/json")
 		.arg("-X").arg("POST")
@@ -318,6 +318,17 @@ fn test_stuff() {
 		.expect("failed to deposit into HomeBridge");
 	assert!(exit_status.success());
 // org value 0x186a0
+
+
+	//TODO [edwardmack] figure out why balance here is the same as balance after withdrawl is complete
+	// I expected to see balance lower here (since tokens should have been sent to foreign contract).
+	// balance on HomeBridge after deposit (before withdrawl)
+	let future = home_eth.balance(address_from_str(user_address), None);
+
+	let balance = event_loop.run(future).unwrap();
+
+	println!("== HomeBridge balance after HomeBridge Deposit {}", &balance);
+
 
 	println!("\ndeposit into home sent. give it plenty of time to get mined and relayed\n");
 	thread::sleep(Duration::from_millis(10000));
@@ -380,6 +391,9 @@ fn test_stuff() {
 	let future = home_eth.balance(address_from_str(user_address), None);
 	println!("waiting for future");
 	let balance = event_loop.run(future).unwrap();
+
+	println!("balance at home after withdrawl {}", &balance);
+
 	assert!(balance > web3::types::U256::from(0));
 
 	println!("\nconfirmed that withdraw reached home\n");
