@@ -741,6 +741,16 @@ dependencies = [
 [[package]]
 name = "test_bridge_stuff"
 version = "0.1.0"
+dependencies = [
+ "bridge 0.1.0",
+ "ethabi 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ethabi-contract 5.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ethabi-derive 5.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ethereum-types 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-core 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "web3 0.2.0 (git+https://github.com/tomusdrw/rust-web3?branch=bridge)",
+]
 
 [[package]]
 name = "tests"

@@ -56,3 +56,5 @@ node_modules
 compiled_contracts
 
 integration-tests/tmp
+
+test_bridge_stuff/tmp
