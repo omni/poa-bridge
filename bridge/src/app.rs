@@ -8,6 +8,9 @@ use config::Config;
 use contracts::{home, foreign};
 //use web3::transports::http::Http;
 
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+
 pub struct App<T> where T: Transport {
 	pub config: Config,
 	pub database_path: PathBuf,
@@ -15,6 +18,7 @@ pub struct App<T> where T: Transport {
 	pub home_bridge: home::HomeBridge,
 	pub foreign_bridge: foreign::ForeignBridge,
 	pub timer: Timer,
+	pub running: Arc<AtomicBool>
 }
 
 pub struct Connections<T> where T: Transport {
@@ -72,7 +76,7 @@ impl<T: Transport> Connections<T> {
 }
 
 impl App<Ipc> {
-	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
 		let connections = Connections::new_ipc(handle, &config.home.ipc, &config.foreign.ipc)?;
 		let result = App {
 			config,
@@ -81,6 +85,7 @@ impl App<Ipc> {
 			home_bridge: home::HomeBridge::default(),
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: Timer::default(),
+			running,
 		};
 		Ok(result)
 	}
@@ -121,6 +126,7 @@ impl<T: Transport> App<T> {
 			home_bridge: home::HomeBridge::default(),
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: self.timer.clone(),
+			running: self.running.clone(),
 		}
 	}
 }
