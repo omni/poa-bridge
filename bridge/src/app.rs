@@ -6,7 +6,7 @@ use web3::transports::ipc::Ipc;
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
-//use web3::transports::http::Http;
+use web3::transports::http::Http;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -45,9 +45,9 @@ impl Connections<Ipc> {
 	}
 }
 
-/*
-impl Connections<Http> {
-	pub fn new_http<P: String>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
+
+impl Connections<Http>  {
+	pub fn new_http(handle: &Handle, home: &str, foreign: &str) -> Result<Self, Error> {
 
 	    let home = Http::with_event_loop(home, handle,1)
 			.map_err(ErrorKind::Web3)
@@ -65,7 +65,7 @@ impl Connections<Http> {
 		Ok(result)
 	}
 }
-*/
+
 impl<T: Transport> Connections<T> {
 	pub fn as_ref(&self) -> Connections<&T> {
 		Connections {
@@ -90,9 +90,9 @@ impl App<Ipc> {
 		Ok(result)
 	}
 }
-/*
+
 impl App<Http> {
-	pub fn new_http<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle) -> Result<Self, Error> {
+	pub fn new_http<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
 		let mut home_url:String = config.home.rpc_host.to_owned();
 		let c_string: &str =  ":";
 		let home_port_string = config.home.rpc_port.to_string();
@@ -104,7 +104,7 @@ impl App<Http> {
 		foreign_url.push_str(c_string);
 		foreign_url.push_str(&foreign_port_string);
 
-		let connections = Connections::new_http(handle, home_url, foreign_url)?;
+		let connections = Connections::new_http(handle, home_url.as_ref(), foreign_url.as_ref())?;
 		let result = App {
 			config,
 			database_path: database_path.as_ref().to_path_buf(),
@@ -112,11 +112,12 @@ impl App<Http> {
 			home_bridge: home::HomeBridge::default(),
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: Timer::default(),
+			running,
 		};
 		Ok(result)
 	}
 }
-*/
+
 impl<T: Transport> App<T> {
 	pub fn as_ref(&self) -> App<&T> {
 		App {

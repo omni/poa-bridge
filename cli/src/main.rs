@@ -117,7 +117,39 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	info!(target: "bridge", "Starting event loop");
 	let mut event_loop = Core::new().unwrap();
 
+	info!(target: "bridge", "Home IPC file stem {:?}", config.clone().home.ipc.file_stem());
+
+	info!(target: "bridge", "Home rpc host {}", config.clone().home.rpc_host);
+
+	// FIXME [edwardmack], figure out how to make this work.
+	// I thought that since App<T> where T: Transport, and since Ipc and Http are Transport why doesn't this work
+	let app = match config.clone().home.ipc.file_stem() {
+		Some(name) =>
+			match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running) {
+				Ok(app) => app,
+				Err(e) => {
+					warn!("Can't establish an IPC connection: {:?}", e);
+					return Err((ERR_CANNOT_CONNECT, e).into());
+				},
+			}
+		,
+		None =>
+			match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running) {
+				Ok(app) => app,
+				Err(e) => {
+					warn!("Can't establish an IPC connection: {:?}", e);
+					return Err((ERR_CANNOT_CONNECT, e).into());
+				},
+			}
+		,
+
+	};
+
+
+	/*
 	info!(target: "bridge", "Establishing ipc connection");
+
+
 	let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running) {
 			Ok(app) => app,
 			Err(e) => {
@@ -125,6 +157,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 				return Err((ERR_CANNOT_CONNECT, e).into());
 			},
 	};
+	*/
 	let app_ref = Arc::new(app.as_ref());
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
