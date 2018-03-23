@@ -93,6 +93,7 @@ impl App<Ipc> {
 
 impl App<Http> {
 	pub fn new_http<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
+		//TODO [edwardmack] is this the best way to build a string?
 		let mut home_url:String = config.home.rpc_host.to_owned();
 		let c_string: &str =  ":";
 		let home_port_string = config.home.rpc_port.to_string();
