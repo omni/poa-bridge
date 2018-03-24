@@ -1,18 +1,18 @@
 use std::sync::Arc;
-use futures::{Future, Stream, Poll};
-use futures::future::{JoinAll, join_all, Join};
-use tokio_timer::Timeout;
+use futures::{Future, Stream, Poll, Join, future};
 use web3::Transport;
 use web3::types::{H256, Address, FilterBuilder, Log, Bytes, TransactionRequest};
 use ethabi::{RawLog, self};
 use app::App;
-use api::{self, LogStream, ApiCall};
+use api::{self, LogStream};
 use contracts::foreign;
 use util::web3_filter;
 use database::Database;
 use error::{self, Error};
 use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
+use super::batch::batch;
+use super::sequentially::sequentially;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
 fn collected_signatures_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
@@ -57,17 +57,15 @@ fn signatures_payload(foreign: &foreign::ForeignBridge, required_signatures: u32
 }
 
 /// state of the withdraw relay state machine
-pub enum WithdrawRelayState<T: Transport> {
+pub enum WithdrawRelayState {
 	Wait,
 	FetchMessagesSignatures {
-		future: Join<
-			JoinAll<Vec<Timeout<ApiCall<Bytes, T::Out>>>>,
-			JoinAll<Vec<JoinAll<Vec<Timeout<ApiCall<Bytes, T::Out>>>>>>
-		>,
+		future: Join<Box<Future<Item = Vec<Bytes>, Error = Error>>,
+			         Box<Future<Item = Vec<Vec<Bytes>>, Error = Error>>>,
 		block: u64,
 	},
 	RelayWithdraws {
-		future: JoinAll<Vec<Timeout<ApiCall<H256, T::Out>>>>,
+		future: Box<Future<Item = Vec<H256>, Error = Error>>,
 		block: u64,
 	},
 	Yield(Option<u64>),
@@ -94,12 +92,12 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 pub struct WithdrawRelay<T: Transport> {
 	app: Arc<App<T>>,
 	logs: LogStream<T>,
-	state: WithdrawRelayState<T>,
+	state: WithdrawRelayState,
 	foreign_contract: Address,
 	home_contract: Address,
 }
 
-impl<T: Transport> Stream for WithdrawRelay<T> {
+impl<T: Transport> Stream for WithdrawRelay<T> where T::Out: 'static {
 	type Item = u64;
 	type Error = Error;
 
@@ -131,25 +129,26 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 							self.app.timer.timeout(
 								api::call(&self.app.connections.foreign, self.foreign_contract.clone(), payload),
 								self.app.config.foreign.request_timeout)
-						})
-						.collect::<Vec<_>>();
+						});
 
 					let signature_calls = signatures.into_iter()
 						.map(|payloads| {
-							payloads.into_iter()
+							let iter = payloads.into_iter()
 								.map(|payload| {
 									self.app.timer.timeout(
 										api::call(&self.app.connections.foreign, self.foreign_contract.clone(), payload),
 										self.app.config.foreign.request_timeout)
-								})
-								.collect::<Vec<_>>()
-						})
-						.map(|calls| join_all(calls))
-						.collect::<Vec<_>>();
+								});
+
+							sequentially(batch(iter,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch))
+						});
+
+					let mut batches_message = batch(message_calls,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
+					let mut batches_signature = batch(signature_calls,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
 
 					info!("fetching messages and signatures");
 					WithdrawRelayState::FetchMessagesSignatures {
-						future: join_all(message_calls).join(join_all(signature_calls)),
+						future: sequentially(batches_message).join(sequentially(batches_signature)),
 						block: item.to,
 					}
 				},
@@ -187,6 +186,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						)
 						.collect::<error::Result<Vec<_>>>()?;
 
+					let relays_len = messages.len();
 					let relays = messages.into_iter()
 						.zip(signatures.into_iter())
 						.map(|(message, signatures)| {
@@ -208,12 +208,14 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 							app.timer.timeout(
 								api::send_transaction(&app.connections.home, request),
 								app.config.home.request_timeout)
-						})
-						.collect::<Vec<_>>();
+						});
 
-					info!("relaying {} withdraws", relays.len());
+
+					let mut batches = batch(relays,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
+
+					info!("relaying {} withdraws", relays_len);
 					WithdrawRelayState::RelayWithdraws {
-						future: join_all(relays),
+						future: sequentially(batches),
 						block,
 					}
 				},

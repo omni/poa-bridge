@@ -1,17 +1,17 @@
 use std::sync::Arc;
 use std::ops;
-use futures::{Future, Stream, Poll};
-use futures::future::{JoinAll, join_all};
-use tokio_timer::Timeout;
+use futures::{Future, Stream, Poll, future};
 use web3::Transport;
 use web3::types::{H256, H520, Address, TransactionRequest, Bytes, FilterBuilder};
-use api::{self, LogStream, ApiCall};
+use api::{self, LogStream};
 use app::App;
 use contracts::foreign;
 use util::web3_filter;
 use database::Database;
 use error::Error;
 use message_to_mainnet::{MessageToMainnet, MESSAGE_LENGTH};
+use super::batch::batch;
+use super::sequentially::sequentially;
 
 fn withdraws_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
 	let filter = foreign.events().withdraw().create_filter();
@@ -24,18 +24,18 @@ fn withdraw_submit_signature_payload(foreign: &foreign::ForeignBridge, withdraw_
 }
 
 /// State of withdraw confirmation.
-enum WithdrawConfirmState<T: Transport> {
+enum WithdrawConfirmState {
 	/// Withdraw confirm is waiting for logs.
 	Wait,
 	/// Signing withdraws.
 	SignWithdraws {
 		messages: Vec<Vec<u8>>,
-		future: JoinAll<Vec<Timeout<ApiCall<H520, T::Out>>>>,
+		future: Box<Future<Item = Vec<H520>, Error = Error>>,
 		block: u64,
 	},
 	/// Confirming withdraws.
 	ConfirmWithdraws {
-		future: JoinAll<Vec<Timeout<ApiCall<H256, T::Out>>>>,
+		future: Box<Future<Item = Vec<H256>, Error = Error>>,
 		block: u64,
 	},
 	/// All withdraws till given block has been confirmed.
@@ -62,11 +62,11 @@ pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Da
 pub struct WithdrawConfirm<T: Transport> {
 	app: Arc<App<T>>,
 	logs: LogStream<T>,
-	state: WithdrawConfirmState<T>,
+	state: WithdrawConfirmState,
 	foreign_contract: Address,
 }
 
-impl<T: Transport> Stream for WithdrawConfirm<T> {
+impl<T: Transport> Stream for WithdrawConfirm<T> where T::Out: 'static {
 	type Item = u64;
 	type Error = Error;
 
@@ -90,12 +90,12 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 							self.app.timer.timeout(
 								api::sign(&self.app.connections.foreign, self.app.config.foreign.account, Bytes(message)),
 								self.app.config.foreign.request_timeout)
-						})
-						.collect::<Vec<_>>();
+						});
 
+					let mut batches = batch(requests,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
 					info!("signing");
 					WithdrawConfirmState::SignWithdraws {
-						future: join_all(requests),
+						future: sequentially(batches),
 						messages: withdraw_messages,
 						block: item.to,
 					}
@@ -106,6 +106,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 					// borrow checker...
 					let app = &self.app;
 					let foreign_contract = &self.foreign_contract;
+					let len = messages.len();
 					let confirmations = messages
 						.drain(ops::RangeFull)
 						.zip(signatures.into_iter())
@@ -127,12 +128,12 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 							app.timer.timeout(
 								api::send_transaction(&app.connections.foreign, request),
 								app.config.foreign.request_timeout)
-						})
-						.collect::<Vec<_>>();
+						});
 
-					info!("submitting {} signatures", confirmations.len());
+					let mut batches = batch(confirmations,|items| Box::new(future::join_all(items)), self.app.config.foreign.simultaneous_requests_per_batch);
+					info!("submitting {} signatures", len);
 					WithdrawConfirmState::ConfirmWithdraws {
-						future: join_all(confirmations),
+						future: sequentially(batches),
 						block,
 					}
 				},
