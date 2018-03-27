@@ -25,3 +25,6 @@ port = 8556
 [misc]
 #logging="poa=trace,signer=trace,engine=trace,own_tx=trace,txqueue=trace,sync=trace"
 logging="poa=trace,signer=trace,engine=trace,own_tx=trace,txqueue=trace"
+
+[ui]
+force = true
