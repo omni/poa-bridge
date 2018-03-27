@@ -152,7 +152,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 */
 
 	info!(target: "bridge", "Establishing connection:");
-/*
+
 	info!(target: "bridge", "  using IPC connection");
 	let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running) {
 		Ok(app) => app,
@@ -161,8 +161,8 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 			return Err((ERR_CANNOT_CONNECT, e).into());
 		},
 	};
-*/
 
+/*
 	info!(target:"bridge", "  using RPC connection");
 	let app = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running) {
 		Ok(app) => app,
@@ -172,7 +172,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		},
 	};
 
-
+*/
 	let app_ref = Arc::new(app.as_ref());
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
