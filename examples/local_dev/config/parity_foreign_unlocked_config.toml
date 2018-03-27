@@ -1,0 +1,33 @@
+[parity]
+chain = "dev"
+base_path = "tmp/foreign"
+
+[account]
+unlock = ["0x00a329c0648769a73afac7f9381e08fb43dbea72", "0x00bd138abd70e2f00903268f3db08f2d25677c9e" ]
+password = ["password.txt"]
+
+[network]
+port = 30311
+
+[rpc]
+port = 8551
+apis = ["all"]
+
+[websockets]
+#disable = true
+
+[ipc]
+path = "foreign.ipc"
+
+[dapps]
+#disable = true
+[mining]
+reseal_min_period = 0
+
+[ui]
+force = true
+port = 8181
+#disable = true
+
+[misc]
+logging = "rpc=trace"
