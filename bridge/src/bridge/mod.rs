@@ -64,6 +64,10 @@ enum BridgeStatus {
 	NextItem(Option<()>),
 }
 
+//pub fn create_arc<T: Transport>(app: A) -> Arc<App<T>> {
+//	Arc::new(app)
+//}
+
 /// Creates new bridge.
 pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database) -> Bridge<T, FileBackend> {
 	let backend = FileBackend {

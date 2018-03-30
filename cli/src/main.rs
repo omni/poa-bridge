@@ -22,6 +22,7 @@ use bridge::bridge::{create_bridge, create_deploy, Deployed};
 use bridge::config::Config;
 use bridge::error::{Error, ErrorKind};
 use bridge::web3;
+use web3::Transport;
 
 const ERR_UNKNOWN: i32 = 1;
 const ERR_IO_ERROR: i32 = 2;
@@ -154,7 +155,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	info!(target: "bridge", "Establishing connection:");
 
 	info!(target: "bridge", "  using IPC connection");
-	let app = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running) {
+	let app_ipc = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
 		Ok(app) => app,
 		Err(e) => {
 			warn!("Can't establish an IPC connection: {:?}", e);
@@ -162,9 +163,9 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		},
 	};
 
-/*
+
 	info!(target:"bridge", "  using RPC connection");
-	let app = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running) {
+	let app_rpc = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
 		Ok(app) => app,
 		Err(e) => {
 			warn!("Can't establish an RPC connection: {:?}", e);
@@ -172,8 +173,45 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		},
 	};
 
+
+/*
+	let app_ref = match config.clone().home.ipc.file_stem() {
+		Some(_) =>
+			{
+				info!(target:"bridge", "USE IPC");
+				app_rpc.as_ref()
+			},
+		None =>
+			{
+				info!(target: "bridge", "USE RPC");
+				app_ipc.as_ref()
+			},
+
+	};
 */
-	let app_ref = Arc::new(app.as_ref());
+	let app_test;
+
+	if let Some(_) = config.clone().home.ipc.file_stem() {
+		app_test = match App::new_ipc(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
+			Ok(app) => app,
+			Err(e) => {
+				warn!("Can't establish an IPC connection: {:?}", e);
+				return Err((ERR_CANNOT_CONNECT, e).into());
+			},
+		};
+		println!("has file");
+	} else {
+		app_test = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
+			Ok(app) => app,
+			Err(e) => {
+				warn!("Can't establish an RPC connection: {:?}", e);
+				return Err((ERR_CANNOT_CONNECT, e).into());
+			},
+		};
+	}
+
+	//let app_ref = create_arc(app_rpc);
+	let app_ref = Arc::new(app_rpc.as_ref());
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
 	let deployed = event_loop.run(create_deploy(app_ref.clone()))?;
