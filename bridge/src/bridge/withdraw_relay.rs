@@ -1,16 +1,16 @@
-use std::sync::Arc;
-use futures::{Future, Stream, Poll};
+use std::sync::{Arc, RwLock};
+use futures::{self, Future, Stream, Poll};
 use futures::future::{JoinAll, join_all, Join};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{H256, Address, FilterBuilder, Log, Bytes, TransactionRequest};
+use web3::types::{H256, U256, Address, FilterBuilder, Log, Bytes, TransactionRequest};
 use ethabi::{RawLog, self};
 use app::App;
 use api::{self, LogStream, ApiCall};
 use contracts::foreign;
 use util::web3_filter;
 use database::Database;
-use error::{self, Error};
+use error::{self, Error, ErrorKind};
 use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
 
@@ -73,7 +73,7 @@ pub enum WithdrawRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database) -> WithdrawRelay<T> {
+pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>) -> WithdrawRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_relay,
 		request_timeout: app.config.foreign.request_timeout,
@@ -88,6 +88,7 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		foreign_contract: init.foreign_contract_address,
 		state: WithdrawRelayState::Wait,
 		app,
+		home_balance,
 	}
 }
 
@@ -97,6 +98,7 @@ pub struct WithdrawRelay<T: Transport> {
 	state: WithdrawRelayState<T>,
 	foreign_contract: Address,
 	home_contract: Address,
+	home_balance: Arc<RwLock<Option<U256>>>,
 }
 
 impl<T: Transport> Stream for WithdrawRelay<T> {
@@ -154,9 +156,20 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					}
 				},
 				WithdrawRelayState::FetchMessagesSignatures { ref mut future, block } => {
+					let home_balance = self.home_balance.read().unwrap();
+					if home_balance.is_none() {
+						warn!("home contract balance is unknown");
+						return Ok(futures::Async::NotReady);
+					}
+
 					let (messages_raw, signatures_raw) = try_ready!(future.poll());
 					info!("fetching messages and signatures complete");
 					assert_eq!(messages_raw.len(), signatures_raw.len());
+
+					let balance_required = U256::from(self.app.config.txs.withdraw_relay.gas) * U256::from(self.app.config.txs.withdraw_relay.gas_price) * U256::from(messages_raw.len());
+					if balance_required > *home_balance.as_ref().unwrap() {
+						return Err(ErrorKind::InsufficientFunds.into())
+					}
 
 					let app = &self.app;
 					let home_contract = &self.home_contract;

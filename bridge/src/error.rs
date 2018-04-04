@@ -20,6 +20,7 @@ error_chain! {
 
 	errors {
 	    ShutdownRequested
+		InsufficientFunds
 		// api timeout
 		Timeout(request: &'static str) {
 			description("Request timeout"),
