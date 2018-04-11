@@ -9,6 +9,7 @@ extern crate log;
 extern crate env_logger;
 extern crate bridge;
 extern crate ctrlc;
+extern crate jsonrpc_core as rpc;
 
 use std::{env, fs, io};
 use std::sync::Arc;
@@ -26,6 +27,8 @@ use bridge::web3;
 const ERR_UNKNOWN: i32 = 1;
 const ERR_IO_ERROR: i32 = 2;
 const ERR_SHUTDOWN_REQUESTED: i32 = 3;
+const ERR_INSUFFICIENT_FUNDS: i32 = 4;
+const ERR_RPC_ERROR: i32 = 5;
 const ERR_CANNOT_CONNECT: i32 = 10;
 const ERR_CONNECTION_LOST: i32 = 11;
 const ERR_BRIDGE_CRASH: i32 = 11;
@@ -159,7 +162,20 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		    Err(e @ Error(ErrorKind::ShutdownRequested, _)) => {
 				info!("Shutdown requested, terminating");
 				return Err((ERR_SHUTDOWN_REQUESTED, e.into()).into());
-			}
+			},
+  		    Err(e @ Error(ErrorKind::InsufficientFunds, _)) => {
+  			    info!("Insufficient funds, terminating");
+			    return Err((ERR_INSUFFICIENT_FUNDS, e.into()).into());
+		    },
+     	    Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Rpc(e), _)), _)) => {
+				if e.code == rpc::ErrorCode::ServerError(-32010) {
+					info!("Insufficient funds, terminating");
+					return Err((ERR_INSUFFICIENT_FUNDS, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				} else {
+					info!("RPC error {:?}", e);
+					return Err((ERR_RPC_ERROR, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				}
+			},
 			Err(e) => {
 				warn!("Bridge crashed with {}", e);
 				return Err((ERR_BRIDGE_CRASH, e).into());

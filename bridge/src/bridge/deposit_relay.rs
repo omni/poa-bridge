@@ -1,12 +1,12 @@
-use std::sync::Arc;
-use futures::{Future, Stream, Poll};
+use std::sync::{Arc, RwLock};
+use futures::{self, Future, Stream, Poll};
 use futures::future::{JoinAll, join_all};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{TransactionRequest, H256, Address, Bytes, Log, FilterBuilder};
+use web3::types::{TransactionRequest, H256, U256, Address, Bytes, Log, FilterBuilder};
 use ethabi::RawLog;
 use api::{LogStream, self, ApiCall};
-use error::{Error, Result};
+use error::{Error, ErrorKind, Result};
 use database::Database;
 use contracts::{home, foreign};
 use util::web3_filter;
@@ -41,7 +41,7 @@ enum DepositRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database) -> DepositRelay<T> {
+pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>) -> DepositRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_deposit_relay,
 		request_timeout: app.config.home.request_timeout,
@@ -54,6 +54,7 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 		foreign_contract: init.foreign_contract_address,
 		state: DepositRelayState::Wait,
 		app,
+		foreign_balance,
 	}
 }
 
@@ -62,6 +63,7 @@ pub struct DepositRelay<T: Transport> {
 	logs: LogStream<T>,
 	state: DepositRelayState<T>,
 	foreign_contract: Address,
+	foreign_balance: Arc<RwLock<Option<U256>>>,
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
@@ -72,8 +74,17 @@ impl<T: Transport> Stream for DepositRelay<T> {
 		loop {
 			let next_state = match self.state {
 				DepositRelayState::Wait => {
+					let foreign_balance = self.foreign_balance.read().unwrap();
+					if foreign_balance.is_none() {
+						warn!("foreign contract balance is unknown");
+						return Ok(futures::Async::NotReady);
+					}
 					let item = try_stream!(self.logs.poll());
 					info!("got {} new deposits to relay", item.logs.len());
+					let balance_required = U256::from(self.app.config.txs.deposit_relay.gas) * U256::from(self.app.config.txs.deposit_relay.gas_price) * U256::from(item.logs.len());
+					if balance_required > *foreign_balance.as_ref().unwrap() {
+						return Err(ErrorKind::InsufficientFunds.into())
+					}
 					let deposits = item.logs
 						.into_iter()
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))

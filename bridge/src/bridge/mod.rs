@@ -1,18 +1,21 @@
 mod deploy;
+mod balance;
 mod deposit_relay;
 mod withdraw_confirm;
 mod withdraw_relay;
 
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::path::PathBuf;
 use futures::{Stream, Poll, Async};
 use web3::Transport;
+use web3::types::U256;
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind, Result};
 
 pub use self::deploy::{Deploy, Deployed, create_deploy};
+pub use self::balance::{BalanceCheck, create_balance_check};
 pub use self::deposit_relay::{DepositRelay, create_deposit_relay};
 pub use self::withdraw_relay::{WithdrawRelay, create_withdraw_relay};
 pub use self::withdraw_confirm::{WithdrawConfirm, create_withdraw_confirm};
@@ -57,7 +60,7 @@ impl BridgeBackend for FileBackend {
 
 		self.database.save(file)
 	}
-}
+ }
 
 enum BridgeStatus {
 	Wait,
@@ -76,10 +79,16 @@ pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database) ->
 
 /// Creates new bridge writing to custom backend.
 pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F) -> Bridge<T, F> {
+	let home_balance = Arc::new(RwLock::new(None));
+	let foreign_balance = Arc::new(RwLock::new(None));
 	Bridge {
-		deposit_relay: create_deposit_relay(app.clone(), init),
-		withdraw_relay: create_withdraw_relay(app.clone(), init),
-		withdraw_confirm: create_withdraw_confirm(app.clone(), init),
+		foreign_balance_check: create_balance_check(app.connections.foreign.clone(), app.config.foreign.clone()),
+		home_balance_check: create_balance_check(app.connections.home.clone(), app.config.home.clone()),
+		foreign_balance: foreign_balance.clone(),
+		home_balance: home_balance.clone(),
+		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone()),
+		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone()),
+		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone()),
 		state: BridgeStatus::Wait,
 		backend,
 		running: app.running.clone(),
@@ -87,6 +96,10 @@ pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<
 }
 
 pub struct Bridge<T: Transport, F> {
+	home_balance_check: BalanceCheck<T>,
+	foreign_balance_check: BalanceCheck<T>,
+	home_balance: Arc<RwLock<Option<U256>>>,
+	foreign_balance: Arc<RwLock<Option<U256>>>,
 	deposit_relay: DepositRelay<T>,
 	withdraw_relay: WithdrawRelay<T>,
 	withdraw_confirm: WithdrawConfirm<T>,
@@ -96,6 +109,20 @@ pub struct Bridge<T: Transport, F> {
 }
 
 use std::sync::atomic::{AtomicBool, Ordering};
+
+impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
+	fn check_balances(&mut self) -> Poll<Option<()>, Error> {
+		let mut home_balance = self.home_balance.write().unwrap();
+		let mut foreign_balance = self.foreign_balance.write().unwrap();
+		*home_balance = try_bridge!(self.home_balance_check.poll()).or(*home_balance);
+		*foreign_balance = try_bridge!(self.foreign_balance_check.poll()).or(*foreign_balance);
+		if home_balance.is_none() || foreign_balance.is_none() {
+			Ok(Async::NotReady)
+		} else {
+			Ok(Async::Ready(None))
+		}
+	}
+}
 
 impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 	type Item = ();
@@ -108,9 +135,34 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 					if !self.running.load(Ordering::SeqCst) {
 						return Err(ErrorKind::ShutdownRequested.into())
 					}
+
+					// Intended to be used upon startup
+					let balance_is_absent = {
+						let mut home_balance = self.home_balance.read().unwrap();
+						let mut foreign_balance = self.foreign_balance.read().unwrap();
+						home_balance.is_none() || foreign_balance.is_none()
+					};
+					if balance_is_absent {
+						self.check_balances()?;
+					}
+
 					let d_relay = try_bridge!(self.deposit_relay.poll()).map(BridgeChecked::DepositRelay);
+
+					if d_relay.is_some() {
+						self.check_balances()?;
+					}
+
 					let w_relay = try_bridge!(self.withdraw_relay.poll()).map(BridgeChecked::WithdrawRelay);
+
+					if w_relay.is_some() {
+						self.check_balances()?;
+					}
+
 					let w_confirm = try_bridge!(self.withdraw_confirm.poll()).map(BridgeChecked::WithdrawConfirm);
+
+					if w_confirm.is_some() {
+						self.check_balances()?;
+					}
 
 					let result: Vec<_> = [d_relay, w_relay, w_confirm]
 						.into_iter()

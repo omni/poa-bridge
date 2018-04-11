@@ -1,16 +1,16 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::ops;
-use futures::{Future, Stream, Poll};
+use futures::{self, Future, Stream, Poll};
 use futures::future::{JoinAll, join_all};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{H256, H520, Address, TransactionRequest, Bytes, FilterBuilder};
+use web3::types::{H256, U256, H520, Address, TransactionRequest, Bytes, FilterBuilder};
 use api::{self, LogStream, ApiCall};
 use app::App;
 use contracts::foreign;
 use util::web3_filter;
 use database::Database;
-use error::Error;
+use error::{Error, ErrorKind};
 use message_to_mainnet::{MessageToMainnet, MESSAGE_LENGTH};
 
 fn withdraws_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
@@ -42,7 +42,7 @@ enum WithdrawConfirmState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Database) -> WithdrawConfirm<T> {
+pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>) -> WithdrawConfirm<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_confirm,
 		request_timeout: app.config.foreign.request_timeout,
@@ -56,6 +56,7 @@ pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Da
 		foreign_contract: init.foreign_contract_address,
 		state: WithdrawConfirmState::Wait,
 		app,
+		foreign_balance,
 	}
 }
 
@@ -64,6 +65,7 @@ pub struct WithdrawConfirm<T: Transport> {
 	logs: LogStream<T>,
 	state: WithdrawConfirmState<T>,
 	foreign_contract: Address,
+	foreign_balance: Arc<RwLock<Option<U256>>>,
 }
 
 impl<T: Transport> Stream for WithdrawConfirm<T> {
@@ -101,7 +103,18 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 					}
 				},
 				WithdrawConfirmState::SignWithdraws { ref mut future, ref mut messages, block } => {
+					let foreign_balance = self.foreign_balance.read().unwrap();
+					if foreign_balance.is_none() {
+						warn!("foreign contract balance is unknown");
+						return Ok(futures::Async::NotReady);
+					}
+
 					let signatures = try_ready!(future.poll());
+					let balance_required = U256::from(self.app.config.txs.withdraw_confirm.gas) * U256::from(self.app.config.txs.withdraw_confirm.gas_price) * U256::from(signatures.len());
+					if balance_required > *foreign_balance.as_ref().unwrap() {
+						return Err(ErrorKind::InsufficientFunds.into())
+					}
+
 					info!("signing complete");
 					// borrow checker...
 					let app = &self.app;

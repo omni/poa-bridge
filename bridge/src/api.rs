@@ -5,8 +5,8 @@ use futures::{Future, Stream, Poll};
 use tokio_timer::{Timer, Interval, Timeout};
 use web3::{self, api, Transport};
 use web3::api::Namespace;
-use web3::types::{Log, Filter, H256, H520, U256, FilterBuilder, TransactionRequest, Bytes, Address, CallRequest};
-use web3::helpers::CallResult;
+use web3::types::{Log, Filter, H256, H520, U256, FilterBuilder, TransactionRequest, Bytes, Address, CallRequest, BlockNumber};
+use web3::helpers::{self, CallResult};
 use error::{Error, ErrorKind};
 
 /// Imperative alias for web3 function.
@@ -47,6 +47,19 @@ pub fn block_number<T: Transport>(transport: T) -> ApiCall<U256, T::Out> {
 	ApiCall {
 		future: api::Eth::new(transport).block_number(),
 		message: "eth_blockNumber",
+	}
+}
+
+/// Imperative wrapper for web3 function.
+pub fn balance<T: Transport>(transport: T, address: Address, block: Option<BlockNumber>) -> ApiCall<U256, T::Out> {
+	// we are not using Eth.balance() because it converts None block into `latest`
+	// while we want `pending` because there might have not been enough time since
+	// the last transaction to get it mined.
+	let address = helpers::serialize(&address);
+	let block = helpers::serialize(&block.unwrap_or(BlockNumber::Pending));
+	ApiCall {
+		future: CallResult::new(transport.execute("eth_getBalance", vec![address, block])),
+		message: "eth_getBalance",
 	}
 }
 
