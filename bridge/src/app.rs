@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use tokio_core::reactor::{Handle};
 use tokio_timer::Timer;
 use web3::Transport;
-use web3::transports::ipc::Ipc;
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
@@ -25,26 +24,6 @@ pub struct Connections<T> where T: Transport {
 	pub home: T,
 	pub foreign: T,
 }
-
-impl Connections<Ipc> {
-	pub fn new_ipc<P: AsRef<Path>>(handle: &Handle, home: P, foreign: P) -> Result<Self, Error> {
-		let home = Ipc::with_event_loop(home, handle)
-			.map_err(ErrorKind::Web3)
-			.map_err(Error::from)
-			.chain_err(|| "Cannot connect to home node ipc")?;
-		let foreign = Ipc::with_event_loop(foreign, handle)
-			.map_err(ErrorKind::Web3)
-			.map_err(Error::from)
-			.chain_err(|| "Cannot connect to foreign node ipc")?;
-
-		let result = Connections {
-			home,
-			foreign,
-		};
-		Ok(result)
-	}
-}
-
 
 impl Connections<Http>  {
 	pub fn new_http(handle: &Handle, home: &str, foreign: &str) -> Result<Self, Error> {
@@ -72,22 +51,6 @@ impl<T: Transport> Connections<T> {
 			home: &self.home,
 			foreign: &self.foreign,
 		}
-	}
-}
-
-impl App<Ipc> {
-	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
-		let connections = Connections::new_ipc(handle, &config.home.ipc, &config.foreign.ipc)?;
-		let result = App {
-			config,
-			database_path: database_path.as_ref().to_path_buf(),
-			connections,
-			home_bridge: home::HomeBridge::default(),
-			foreign_bridge: foreign::ForeignBridge::default(),
-			timer: Timer::default(),
-			running,
-		};
-		Ok(result)
 	}
 }
 

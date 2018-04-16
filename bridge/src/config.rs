@@ -57,7 +57,6 @@ impl Config {
 pub struct Node {
 	pub account: Address,
 	pub contract: ContractConfig,
-	pub ipc: PathBuf,
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
@@ -78,7 +77,6 @@ impl Node {
 					Bytes(read.from_hex()?)
 				}
 			},
-			ipc: node.ipc,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
@@ -161,7 +159,6 @@ mod load {
 	pub struct Node {
 		pub account: Address,
 		pub contract: ContractConfig,
-		pub ipc: PathBuf,
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
@@ -216,7 +213,6 @@ keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
-ipc = "/home.ipc"
 poll_interval = 2
 required_confirmations = 100
 rpc_host = "127.0.0.1"
@@ -228,7 +224,6 @@ bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-ipc = "/foreign.ipc"
 rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "/password.txt"
@@ -252,7 +247,6 @@ home_deploy = { gas = 20 }
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				ipc: "/home.ipc".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -268,7 +262,6 @@ home_deploy = { gas = 20 }
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
-				ipc: "/foreign.ipc".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
@@ -306,7 +299,6 @@ keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
-ipc = ""
 rpc_host = ""
 password = ""
 
@@ -315,7 +307,6 @@ bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-ipc = ""
 rpc_host = ""
 password = ""
 
@@ -334,7 +325,6 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				ipc: "".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -347,7 +337,6 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				ipc: "".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
