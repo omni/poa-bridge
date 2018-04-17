@@ -58,5 +58,3 @@ compiled_contracts
 integration-tests/tmp
 
 yarn-error.log
-
-examples/local_dev/tmp/
