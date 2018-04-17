@@ -57,8 +57,6 @@ compiled_contracts
 
 integration-tests/tmp
 
-test_bridge_stuff/tmp
-
 yarn-error.log
 
 examples/local_dev/tmp/
