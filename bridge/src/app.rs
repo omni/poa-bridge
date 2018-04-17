@@ -56,17 +56,8 @@ impl<T: Transport> Connections<T> {
 
 impl App<Http> {
 	pub fn new_http<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
-		//TODO [edwardmack] is this the best way to build a string?
-		let mut home_url:String = config.home.rpc_host.to_owned();
-		let c_string: &str =  ":";
-		let home_port_string = config.home.rpc_port.to_string();
-		home_url.push_str(c_string);
-		home_url.push_str(&home_port_string);
-
-		let mut foreign_url:String = config.foreign.rpc_host.to_owned();
-		let foreign_port_string = config.foreign.rpc_port.to_string();
-		foreign_url.push_str(c_string);
-		foreign_url.push_str(&foreign_port_string);
+		let home_url:String = format!("{}:{}", config.home.rpc_host, config.home.rpc_port);
+		let foreign_url:String = format!("{}:{}", config.foreign.rpc_host, config.foreign.rpc_port);
 
 		let connections = Connections::new_http(handle, home_url.as_ref(), foreign_url.as_ref())?;
 		let result = App {
