@@ -18,6 +18,8 @@ use bridge::message_to_mainnet::MessageToMainnet;
 use bridge::signature::Signature;
 use bridge::contracts;
 
+use std::sync::RwLock;
+
 const COLLECTED_SIGNATURES_TOPIC: &str = "0xeb043d149eedb81369bec43d4c3a3a53087debc88d2525f13bfaa3eecda28b5c";
 
 // 1 signature required. relay polled twice.
@@ -39,7 +41,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db).take(2),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -90,7 +92,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db).take(1),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
 	expected => vec![0x1005],
 	home_transport => [],
 	foreign_transport => [
@@ -138,7 +140,7 @@ test_app_stream! {
 		],
 		signatures => 2;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db).take(1),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		// `HomeBridge.withdraw`

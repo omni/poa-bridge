@@ -93,6 +93,7 @@ macro_rules! test_app_stream {
 		#[allow(unused_imports)]
 		fn $name() {
 			use self::std::sync::Arc;
+			use self::std::sync::atomic::AtomicBool;
 			use self::std::time::Duration;
 			use self::futures::{Future, Stream};
 			use self::bridge::app::{App, Connections};
@@ -151,6 +152,7 @@ macro_rules! test_app_stream {
 				home_bridge: home::HomeBridge::default(),
 				foreign_bridge: foreign::ForeignBridge::default(),
 				timer: Default::default(),
+				running: Arc::new(AtomicBool::new(true)),
 			};
 
 			let app = Arc::new(app);

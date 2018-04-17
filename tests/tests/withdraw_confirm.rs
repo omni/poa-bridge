@@ -18,6 +18,8 @@ use ethabi::{encode, Token};
 
 const WITHDRAW_TOPIC: &str = "0xf279e6a1f5e320cca91135676d9cb6e44ca8a08c0b88342bcdb1144f6511b568";
 
+use std::sync::RwLock;
+
 test_app_stream! {
 	name => withdraw_confirm_basic,
 	database => Database::default(),
@@ -34,7 +36,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -84,7 +86,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -138,7 +140,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -199,7 +201,7 @@ test_app_stream! {
 		},
 		..Default::default()
 	},
-	init => |app, db| create_withdraw_confirm(app, db).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -304,7 +306,7 @@ test_app_stream! {
 		},
 		..Default::default()
 	},
-	init => |app, db| create_withdraw_confirm(app, db).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
 	expected => vec![0x2, 0x1006],
 	home_transport => [],
 	foreign_transport => [
