@@ -1,4 +1,4 @@
-use std::path::{PathBuf, Path};
+use std::path::Path;
 use std::fs;
 use std::io::Read;
 use std::time::Duration;
@@ -20,7 +20,6 @@ pub struct Config {
 	pub authorities: Authorities,
 	pub txs: Transactions,
 	pub estimated_gas_cost_of_withdraw: u32,
-	pub keystore: PathBuf,
 }
 
 impl Config {
@@ -46,7 +45,6 @@ impl Config {
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
-			keystore: config.keystore,
 		};
 
 		Ok(result)
@@ -62,7 +60,6 @@ pub struct Node {
 	pub required_confirmations: usize,
 	pub rpc_host: String,
 	pub rpc_port: u16,
-	pub password: PathBuf,
 }
 
 impl Node {
@@ -82,7 +79,6 @@ impl Node {
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
 			rpc_host: node.rpc_host.unwrap(),
 			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
-			password: node.password,
 		};
 
 		Ok(result)
@@ -151,7 +147,6 @@ mod load {
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
-		pub keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -164,7 +159,6 @@ mod load {
 		pub required_confirmations: Option<usize>,
 		pub rpc_host: Option<String>,
 		pub rpc_port: Option<u16>,
-		pub password: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -209,15 +203,12 @@ mod tests {
 		let toml = r#"
 estimated_gas_cost_of_withdraw = 100000
 
-keystore = "/keys/"
-
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 poll_interval = 2
 required_confirmations = 100
 rpc_host = "127.0.0.1"
 rpc_port = 8545
-password = "/password.txt"
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -226,7 +217,6 @@ bin = "../compiled_contracts/HomeBridge.bin"
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = "127.0.0.1"
 rpc_port = 8545
-password = "/password.txt"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -255,7 +245,6 @@ home_deploy = { gas = 20 }
 				required_confirmations: 100,
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
-				password: "/password.txt".into()
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -267,7 +256,6 @@ home_deploy = { gas = 20 }
 				required_confirmations: 12,
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
-				password: "/password.txt".into()
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -278,7 +266,6 @@ home_deploy = { gas = 20 }
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 100_000,
-			keystore: "/keys/".into(),
 		};
 
 		expected.txs.home_deploy = TransactionConfig {
@@ -295,12 +282,9 @@ home_deploy = { gas = 20 }
 		let toml = r#"
 estimated_gas_cost_of_withdraw = 200000000
 
-keystore = "/keys/"
-
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 rpc_host = ""
-password = ""
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -308,7 +292,6 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = ""
-password = ""
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -333,7 +316,6 @@ required_signatures = 2
 				required_confirmations: 12,
 				rpc_host: "".into(),
 				rpc_port: 8545,
-				password: "".into(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -345,7 +327,6 @@ required_signatures = 2
 				required_confirmations: 12,
 				rpc_host: "".into(),
 				rpc_port: 8545,
-				password: "".into(),
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -356,7 +337,6 @@ required_signatures = 2
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 200_000_000,
-			keystore: "/keys/".into(),
 		};
 
 		let config = Config::load_from_str(toml).unwrap();

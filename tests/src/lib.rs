@@ -125,7 +125,6 @@ macro_rules! test_app_stream {
 					required_confirmations: $home_conf,
 					rpc_host: "".into(),
 					rpc_port: 8545,
-					password: "".into(),
 				},
 				foreign: Node {
 					account: $foreign_acc.parse().unwrap(),
@@ -137,14 +136,12 @@ macro_rules! test_app_stream {
 					required_confirmations: $foreign_conf,
 					rpc_host: "".into(),
 					rpc_port: 8545,
-					password: "".into(),
 				},
 				authorities: Authorities {
 					accounts: $authorities_accs.iter().map(|a: &&str| a.parse().unwrap()).collect(),
 					required_signatures: $signatures,
 				},
 				estimated_gas_cost_of_withdraw: 100_000,
-				keystore: "".into(),
 			};
 
 			let app = App {

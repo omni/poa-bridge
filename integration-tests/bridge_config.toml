@@ -1,13 +1,10 @@
 estimated_gas_cost_of_withdraw = 0
 
-keystore = "/keys/"
-
 [home]
 account = "0x00bd138abd70e2f00903268f3db08f2d25677c9e"
 required_confirmations = 0
 rpc_host = "http://127.0.0.1"
 rpc_port = 8550
-password = ""
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -17,7 +14,6 @@ account = "0x00bd138abd70e2f00903268f3db08f2d25677c9e"
 required_confirmations = 0
 rpc_host = "http://127.0.0.1"
 rpc_port = 8551
-password = ""
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
