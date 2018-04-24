@@ -114,8 +114,16 @@ impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
 	fn check_balances(&mut self) -> Poll<Option<()>, Error> {
 		let mut home_balance = self.home_balance.write().unwrap();
 		let mut foreign_balance = self.foreign_balance.write().unwrap();
+		let home_balance_known = home_balance.is_some();
+		let foreign_balance_known = foreign_balance.is_some();
 		*home_balance = try_bridge!(self.home_balance_check.poll()).or(*home_balance);
 		*foreign_balance = try_bridge!(self.foreign_balance_check.poll()).or(*foreign_balance);
+		if !home_balance_known && home_balance.is_some() {
+				info!("Retrieved home contract balance");
+		}
+		if !foreign_balance_known && foreign_balance.is_some() {
+				info!("Retrieved foreign contract balance");
+		}
 		if home_balance.is_none() || foreign_balance.is_none() {
 			Ok(Async::NotReady)
 		} else {
@@ -144,6 +152,7 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 					};
 					if balance_is_absent {
 						self.check_balances()?;
+						return Ok(Async::NotReady)
 					}
 
 					let d_relay = try_bridge!(self.deposit_relay.poll()).map(BridgeChecked::DepositRelay);
