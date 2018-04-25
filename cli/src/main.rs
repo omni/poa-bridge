@@ -19,7 +19,7 @@ use futures::{Stream, future};
 use tokio_core::reactor::Core;
 
 use bridge::app::App;
-use bridge::bridge::{create_bridge, create_deploy, Deployed};
+use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, create_nonce_check, Deployed};
 use bridge::config::Config;
 use bridge::error::{Error, ErrorKind};
 use bridge::web3;
@@ -130,8 +130,21 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	};
 	let app_ref = Arc::new(app.as_ref());
 
+	info!(target: "bridge", "Acquiring home & foreign chain ids");
+	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
+	let foreign_chain_id = event_loop.run(create_chain_id_retrieval(app.connections.foreign.clone(), app.config.foreign.clone())).expect("can't retrieve foreign chain_id");
+
+	info!(target: "bridge", "Home chain ID: {} Foreign chain ID: {}", home_chain_id, foreign_chain_id);
+
+	let (home_nonce, _) = event_loop.run(create_nonce_check(app.connections.home.clone(), app.config.home.clone()).into_future()).expect("can't retrieve home nonce");
+	let home_nonce = home_nonce.expect("can't retrieve home nonce");
+
+	let (foreign_nonce, _) = event_loop.run(create_nonce_check(app.connections.foreign.clone(), app.config.foreign.clone()).into_future()).expect("can't retrieve foreign nonce");
+	let foreign_nonce = foreign_nonce.expect("can't retrieve foreign nonce");
+
+
 	info!(target: "bridge", "Deploying contracts (if needed)");
-	let deployed = event_loop.run(create_deploy(app_ref.clone()))?;
+	let deployed = event_loop.run(create_deploy(app_ref.clone(), home_chain_id, foreign_chain_id, home_nonce, foreign_nonce))?;
 
 	let database = match deployed {
 		Deployed::New(database) => {
@@ -147,7 +160,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	};
 
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app_ref.clone(), &database).and_then(|_| future::ok(true)).collect();
+	let bridge = create_bridge(app_ref.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
 	let result = event_loop.run(bridge);
 	match result {
 			Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(e), _)), _)) => {

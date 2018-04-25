@@ -10,6 +10,8 @@ use contracts::{home, foreign};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use ethcore::ethstore::{EthStore,accounts_dir::RootDiskDirectory};
+
 pub struct App<T> where T: Transport {
 	pub config: Config,
 	pub database_path: PathBuf,
@@ -17,7 +19,8 @@ pub struct App<T> where T: Transport {
 	pub home_bridge: home::HomeBridge,
 	pub foreign_bridge: foreign::ForeignBridge,
 	pub timer: Timer,
-	pub running: Arc<AtomicBool>
+	pub running: Arc<AtomicBool>,
+	pub keystore: EthStore,
 }
 
 pub struct Connections<T> where T: Transport {
@@ -56,6 +59,7 @@ impl<T: Transport> Connections<T> {
 impl App<Ipc> {
 	pub fn new_ipc<P: AsRef<Path>>(config: Config, database_path: P, handle: &Handle, running: Arc<AtomicBool>) -> Result<Self, Error> {
 		let connections = Connections::new_ipc(handle, &config.home.ipc, &config.foreign.ipc)?;
+		let keystore = EthStore::open(Box::new(RootDiskDirectory::at(&config.keystore))).map_err(|e| ErrorKind::KeyStore(e))?;
 		let result = App {
 			config,
 			database_path: database_path.as_ref().to_path_buf(),
@@ -64,6 +68,7 @@ impl App<Ipc> {
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: Timer::default(),
 			running,
+			keystore,
 		};
 		Ok(result)
 	}
@@ -71,6 +76,7 @@ impl App<Ipc> {
 
 impl<T: Transport> App<T> {
 	pub fn as_ref(&self) -> App<&T> {
+		let keystore = EthStore::open(Box::new(RootDiskDirectory::at(&self.config.keystore))).unwrap();
 		App {
 			config: self.config.clone(),
 			connections: self.connections.as_ref(),
@@ -79,6 +85,7 @@ impl<T: Transport> App<T> {
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: self.timer.clone(),
 			running: self.running.clone(),
+			keystore,
 		}
 	}
 }

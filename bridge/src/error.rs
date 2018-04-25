@@ -4,6 +4,7 @@ use std::io;
 use api::ApiCall;
 use tokio_timer::{TimerError, TimeoutError};
 use {web3, toml, ethabi, rustc_hex};
+use ethcore::ethstore;
 
 error_chain! {
 	types {
@@ -36,6 +37,10 @@ error_chain! {
 		Web3(err: web3::Error) {
 			description("web3 error"),
 			display("{:?}", err),
+		}
+		KeyStore(err: ethstore::Error) {
+		    description("keystore error"),
+		    display("keystore error {:?}", err),
 		}
 	}
 }

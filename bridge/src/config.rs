@@ -19,6 +19,7 @@ pub struct Config {
 	pub authorities: Authorities,
 	pub txs: Transactions,
 	pub estimated_gas_cost_of_withdraw: u32,
+	pub keystore: PathBuf,
 }
 
 impl Config {
@@ -44,6 +45,7 @@ impl Config {
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
+			keystore: config.keystore,
 		};
 
 		Ok(result)
@@ -58,6 +60,7 @@ pub struct Node {
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	pub password: PathBuf,
 }
 
 impl Node {
@@ -76,9 +79,19 @@ impl Node {
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
+			password: node.password,
 		};
 
 		Ok(result)
+	}
+
+	pub fn password(&self) -> Result<String, Error> {
+		use std::io::Read;
+		use std::fs;
+		let mut f = fs::File::open(&self.password)?;
+		let mut s = String::new();
+		f.read_to_string(&mut s)?;
+		Ok(s.split("\n").next().unwrap().to_string())
 	}
 }
 
@@ -144,6 +157,7 @@ mod load {
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
 		pub estimated_gas_cost_of_withdraw: u32,
+		pub keystore: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -155,6 +169,7 @@ mod load {
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub password: PathBuf,
 	}
 
 	#[derive(Deserialize)]
@@ -197,6 +212,7 @@ mod tests {
 	#[test]
 	fn load_full_setup_from_str() {
 		let toml = r#"
+keystore = "/keys"
 estimated_gas_cost_of_withdraw = 100000
 
 [home]
@@ -204,6 +220,7 @@ account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = "/home.ipc"
 poll_interval = 2
 required_confirmations = 100
+password = "password"
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -211,6 +228,7 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = "/foreign.ipc"
+password = "password"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -238,6 +256,7 @@ home_deploy = { gas = 20 }
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 100,
+				password: "password".into(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -248,6 +267,7 @@ home_deploy = { gas = 20 }
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				password: "password".into(),
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -258,6 +278,7 @@ home_deploy = { gas = 20 }
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 100_000,
+			keystore: "/keys/".into(),
 		};
 
 		expected.txs.home_deploy = TransactionConfig {
@@ -272,11 +293,13 @@ home_deploy = { gas = 20 }
 	#[test]
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
+keystore = "/keys/"
 estimated_gas_cost_of_withdraw = 200000000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 ipc = ""
+password = "password"
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
@@ -284,6 +307,7 @@ bin = "../compiled_contracts/HomeBridge.bin"
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 ipc = ""
+password = "password"
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -307,6 +331,7 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				password: "password".into(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -317,6 +342,7 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				password: "password".into(),
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -327,6 +353,7 @@ required_signatures = 2
 				required_signatures: 2,
 			},
 			estimated_gas_cost_of_withdraw: 200_000_000,
+			keystore: "/keys".into(),
 		};
 
 		let config = Config::load_from_str(toml).unwrap();
