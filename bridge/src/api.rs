@@ -37,7 +37,7 @@ impl<T: DeserializeOwned, F: Future<Item = Value, Error = web3::Error>>Future fo
 /// Imperative wrapper for web3 function.
 pub fn logs<T: Transport>(transport: T, filter: &Filter) -> ApiCall<Vec<Log>, T::Out> {
 	ApiCall {
-		future: api::Eth::new(transport).logs(filter),
+		future: CallResult::new(transport.execute("eth_getLogs", vec![helpers::serialize(filter)])),
 		message: "eth_getLogs",
 	}
 }
