@@ -1,4 +1,4 @@
-use std::path::{PathBuf, Path};
+use std::path::Path;
 use std::fs;
 use std::io::Read;
 use std::time::Duration;
@@ -10,6 +10,7 @@ use {toml};
 const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 5;
+const DEFAULT_RPC_PORT: u16 = 8545;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -54,10 +55,11 @@ impl Config {
 pub struct Node {
 	pub account: Address,
 	pub contract: ContractConfig,
-	pub ipc: PathBuf,
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
+	pub rpc_host: String,
+	pub rpc_port: u16,
 }
 
 impl Node {
@@ -72,10 +74,11 @@ impl Node {
 					Bytes(read.from_hex()?)
 				}
 			},
-			ipc: node.ipc,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
+			rpc_host: node.rpc_host.unwrap(),
+			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
 		};
 
 		Ok(result)
@@ -151,10 +154,11 @@ mod load {
 	pub struct Node {
 		pub account: Address,
 		pub contract: ContractConfig,
-		pub ipc: PathBuf,
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
+		pub rpc_host: Option<String>,
+		pub rpc_port: Option<u16>,
 	}
 
 	#[derive(Deserialize)]
@@ -201,16 +205,18 @@ estimated_gas_cost_of_withdraw = 100000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
-ipc = "/home.ipc"
 poll_interval = 2
 required_confirmations = 100
+rpc_host = "127.0.0.1"
+rpc_port = 8545
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-ipc = "/foreign.ipc"
+rpc_host = "127.0.0.1"
+rpc_port = 8545
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -231,23 +237,25 @@ home_deploy = { gas = 20 }
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				ipc: "/home.ipc".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 100,
+				rpc_host: "127.0.0.1".into(),
+				rpc_port: 8545,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
-				ipc: "/foreign.ipc".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "127.0.0.1".into(),
+				rpc_port: 8545,
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -276,14 +284,14 @@ estimated_gas_cost_of_withdraw = 200000000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
-ipc = ""
+rpc_host = ""
 
 [home.contract]
 bin = "../compiled_contracts/HomeBridge.bin"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-ipc = ""
+rpc_host = ""
 
 [foreign.contract]
 bin = "../compiled_contracts/ForeignBridge.bin"
@@ -300,23 +308,25 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				ipc: "".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "".into(),
+				rpc_port: 8545,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				ipc: "".into(),
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(5),
 				required_confirmations: 12,
+				rpc_host: "".into(),
+				rpc_port: 8545,
 			},
 			authorities: Authorities {
 				accounts: vec![

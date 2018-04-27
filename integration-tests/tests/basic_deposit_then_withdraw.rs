@@ -6,7 +6,6 @@
 /// asserts that the withdraw got relayed to home chain.
 
 extern crate tempdir;
-extern crate ethereum_types;
 extern crate web3;
 extern crate tokio_core;
 extern crate bridge;
@@ -25,7 +24,7 @@ use tokio_core::reactor::Core;
 
 use web3::transports::ipc::Ipc;
 use web3::api::Namespace;
-use ethereum_types::{Address, U256};
+use web3::types::{Address, U256};
 
 extern crate rustc_hex;
 use rustc_hex::FromHex;
