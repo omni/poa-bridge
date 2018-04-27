@@ -128,7 +128,8 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 				return Err((ERR_CANNOT_CONNECT, e).into());
 			},
 	};
-	let app_ref = Arc::new(app.as_ref());
+
+	let app = Arc::new(app);
 
 	info!(target: "bridge", "Acquiring home & foreign chain ids");
 	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
@@ -144,13 +145,13 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 
 	info!(target: "bridge", "Deploying contracts (if needed)");
-	let deployed = event_loop.run(create_deploy(app_ref.clone(), home_chain_id, foreign_chain_id, home_nonce, foreign_nonce))?;
+	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id, home_nonce, foreign_nonce))?;
 
 	let database = match deployed {
 		Deployed::New(database) => {
 			info!(target: "bridge", "Deployed new bridge contracts");
 			info!(target: "bridge", "\n\n{}\n", database);
-			database.save(fs::File::create(&app_ref.database_path)?)?;
+			database.save(fs::File::create(&app.database_path)?)?;
 			database
 		},
 		Deployed::Existing(database) => {
@@ -160,7 +161,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	};
 
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app_ref.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
+	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
 	let result = event_loop.run(bridge);
 	match result {
 			Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(e), _)), _)) => {
