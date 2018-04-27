@@ -5,12 +5,12 @@ use futures::{Future, Stream, Poll};
 use tokio_timer::{Timer, Interval, Timeout};
 use web3::{self, api, Transport};
 use web3::api::Namespace;
-use web3::types::{Log, Filter, H256, H520, U256, FilterBuilder, TransactionRequest, Bytes, Address, CallRequest, BlockNumber};
+use web3::types::{Log, Filter, H256, H520, U256, FilterBuilder, Bytes, Address, CallRequest, BlockNumber};
 use web3::helpers::{self, CallResult};
 use error::{Error, ErrorKind};
 
 /// Imperative alias for web3 function.
-pub use web3::confirm::send_transaction_with_confirmation;
+pub use web3::confirm::send_raw_transaction_with_confirmation;
 
 /// Wrapper type for `CallResult`
 pub struct ApiCall<T, F> {
@@ -33,6 +33,28 @@ impl<T: DeserializeOwned, F: Future<Item = Value, Error = web3::Error>>Future fo
 		self.future.poll().map_err(ErrorKind::Web3).map_err(Into::into)
 	}
 }
+
+/// Imperative wrapper for web3 function.
+pub fn net_version<T: Transport>(transport: T) -> ApiCall<String, T::Out> {
+	ApiCall {
+		future: CallResult::new(transport.execute("net_version", vec![])),
+		message: "net_version",
+	}
+}
+
+/// Imperative wrapper for web3 function.
+pub fn eth_get_transaction_count<T: Transport>(transport: T, address: Address, block: Option<BlockNumber>) -> ApiCall<U256, T::Out> {
+	// we are not using Eth.balance() because it converts None block into `latest`
+	// while we want `pending` because there might have not been enough time since
+	// the last transaction to get it mined.
+	let address = helpers::serialize(&address);
+	let block = helpers::serialize(&block.unwrap_or(BlockNumber::Pending));
+	ApiCall {
+		future: CallResult::new(transport.execute("eth_getTransactionCount", vec![address, block])),
+		message: "net_version",
+	}
+}
+
 
 /// Imperative wrapper for web3 function.
 pub fn logs<T: Transport>(transport: T, filter: &Filter) -> ApiCall<Vec<Log>, T::Out> {
@@ -64,10 +86,10 @@ pub fn balance<T: Transport>(transport: T, address: Address, block: Option<Block
 }
 
 /// Imperative wrapper for web3 function.
-pub fn send_transaction<T: Transport>(transport: T, tx: TransactionRequest) -> ApiCall<H256, T::Out> {
+pub fn send_raw_transaction<T: Transport>(transport: T, tx: Bytes) -> ApiCall<H256, T::Out> {
 	ApiCall {
-		future: api::Eth::new(transport).send_transaction(tx),
-		message: "eth_sendTransaction",
+		future: api::Eth::new(transport).send_raw_transaction(tx),
+		message: "eth_sendRawTransaction",
 	}
 }
 

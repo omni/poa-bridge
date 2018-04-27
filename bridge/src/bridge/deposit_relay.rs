@@ -3,7 +3,7 @@ use futures::{self, Future, Stream, Poll};
 use futures::future::{JoinAll, join_all};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{TransactionRequest, H256, U256, Address, Bytes, Log, FilterBuilder};
+use web3::types::{H256, U256, Address, Bytes, Log, FilterBuilder};
 use ethabi::RawLog;
 use api::{LogStream, self, ApiCall};
 use error::{Error, ErrorKind, Result};
@@ -11,6 +11,9 @@ use database::Database;
 use contracts::{home, foreign};
 use util::web3_filter;
 use app::App;
+use transaction::prepare_raw_transaction;
+use ethcore_transaction::{Transaction, Action};
+use itertools::Itertools;
 
 fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
 	let filter = home.events().deposit().create_filter();
@@ -41,7 +44,8 @@ enum DepositRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>) -> DepositRelay<T> {
+pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64,
+												  foreign_nonce: Arc<RwLock<Option<U256>>>) -> DepositRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_deposit_relay,
 		request_timeout: app.config.home.request_timeout,
@@ -55,6 +59,8 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 		state: DepositRelayState::Wait,
 		app,
 		foreign_balance,
+		foreign_nonce,
+		foreign_chain_id,
 	}
 }
 
@@ -64,6 +70,8 @@ pub struct DepositRelay<T: Transport> {
 	state: DepositRelayState<T>,
 	foreign_contract: Address,
 	foreign_balance: Arc<RwLock<Option<U256>>>,
+	foreign_nonce: Arc<RwLock<Option<U256>>>,
+	foreign_chain_id: u64,
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
@@ -79,6 +87,11 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						warn!("foreign contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
+					let foreign_nonce = self.foreign_nonce.read().unwrap();
+					if foreign_nonce.is_none() {
+						warn!("foreign nonce is unknown");
+						return Ok(futures::Async::NotReady);
+					}
 					let item = try_stream!(self.logs.poll());
 					info!("got {} new deposits to relay", item.logs.len());
 					let balance_required = U256::from(self.app.config.txs.deposit_relay.gas) * U256::from(self.app.config.txs.deposit_relay.gas_price) * U256::from(item.logs.len());
@@ -90,22 +103,26 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
 						.collect::<Result<Vec<_>>>()?
 						.into_iter()
-						.map(|payload| TransactionRequest {
-							from: self.app.config.foreign.account,
-							to: Some(self.foreign_contract.clone()),
-							gas: Some(self.app.config.txs.deposit_relay.gas.into()),
-							gas_price: Some(self.app.config.txs.deposit_relay.gas_price.into()),
-							value: None,
-							data: Some(payload),
-							nonce: None,
-							condition: None,
+						.map(|payload| {
+							let tx = Transaction {
+								gas: self.app.config.txs.deposit_relay.gas.into(),
+								gas_price: self.app.config.txs.deposit_relay.gas_price.into(),
+								value: U256::zero(),
+								data: payload.0,
+								nonce: foreign_nonce.unwrap(),
+								action: Action::Call(self.foreign_contract.clone()),
+							};
+							prepare_raw_transaction(tx, &self.app, &self.app.config.foreign, self.foreign_chain_id)
 						})
-						.map(|request| {
+						.map_results(|tx| {
 							self.app.timer.timeout(
-								api::send_transaction(&self.app.connections.foreign, request),
+								api::send_raw_transaction(&self.app.connections.foreign, tx),
 								self.app.config.foreign.request_timeout)
 						})
-						.collect::<Vec<_>>();
+						.fold_results(vec![], |mut acc, tx| {
+							acc.push(tx);
+							acc
+						})?;
 
 					info!("relaying {} deposits", deposits.len());
 					DepositRelayState::RelayDeposits {

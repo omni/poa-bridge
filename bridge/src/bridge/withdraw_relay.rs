@@ -3,7 +3,7 @@ use futures::{self, Future, Stream, Poll};
 use futures::future::{JoinAll, join_all, Join};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{H256, U256, Address, FilterBuilder, Log, Bytes, TransactionRequest};
+use web3::types::{H256, U256, Address, FilterBuilder, Log, Bytes};
 use ethabi::{RawLog, self};
 use app::App;
 use api::{self, LogStream, ApiCall};
@@ -13,6 +13,9 @@ use database::Database;
 use error::{self, Error, ErrorKind};
 use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
+use transaction::prepare_raw_transaction;
+use ethcore_transaction::{Transaction, Action};
+use itertools::Itertools;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
 fn collected_signatures_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
@@ -73,7 +76,7 @@ pub enum WithdrawRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>) -> WithdrawRelay<T> {
+pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>, home_chain_id: u64, home_nonce: Arc<RwLock<Option<U256>>>) -> WithdrawRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_relay,
 		request_timeout: app.config.foreign.request_timeout,
@@ -89,6 +92,8 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		state: WithdrawRelayState::Wait,
 		app,
 		home_balance,
+		home_chain_id,
+		home_nonce,
 	}
 }
 
@@ -99,6 +104,8 @@ pub struct WithdrawRelay<T: Transport> {
 	foreign_contract: Address,
 	home_contract: Address,
 	home_balance: Arc<RwLock<Option<U256>>>,
+	home_nonce: Arc<RwLock<Option<U256>>>,
+	home_chain_id: u64,
 }
 
 impl<T: Transport> Stream for WithdrawRelay<T> {
@@ -106,6 +113,12 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+		let app = &self.app;
+		let gas = self.app.config.txs.withdraw_relay.gas.into();
+		let contract = self.home_contract.clone();
+		let home = &self.app.config.home;
+		let chain_id = self.home_chain_id;
+
 		loop {
 			let next_state = match self.state {
 				WithdrawRelayState::Wait => {
@@ -161,6 +174,11 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						warn!("home contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
+					let home_nonce = self.home_nonce.read().unwrap();
+					if home_nonce.is_none() {
+						warn!("home nonce is unknown");
+						return Ok(futures::Async::NotReady);
+					}
 
 					let (messages_raw, signatures_raw) = try_ready!(future.poll());
 					info!("fetching messages and signatures complete");
@@ -170,9 +188,6 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					if balance_required > *home_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
-
-					let app = &self.app;
-					let home_contract = &self.home_contract;
 
 					let messages = messages_raw
 						.iter()
@@ -208,21 +223,24 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 								signatures.iter().map(|x| x.r),
 								signatures.iter().map(|x| x.s),
 								message.clone().0).into();
-							let request = TransactionRequest {
-								from: app.config.home.account,
-								to: Some(home_contract.clone()),
-								gas: Some(app.config.txs.withdraw_relay.gas.into()),
-								gas_price: Some(MessageToMainnet::from_bytes(message.0.as_slice()).mainnet_gas_price),
-								value: None,
-								data: Some(payload),
-								nonce: None,
-								condition: None,
-							};
+							let gas_price = MessageToMainnet::from_bytes(message.0.as_slice()).mainnet_gas_price;
+							let tx = Transaction {
+									gas, gas_price,
+									value: U256::zero(),
+									data: payload.0,
+									nonce: home_nonce.unwrap(),
+									action: Action::Call(contract),
+								};
+								prepare_raw_transaction(tx, app, home, chain_id)
+							})
+						.map_results(|tx|
 							app.timer.timeout(
-								api::send_transaction(&app.connections.home, request),
-								app.config.home.request_timeout)
-						})
-						.collect::<Vec<_>>();
+								api::send_raw_transaction(&app.connections.home, tx),
+								app.config.home.request_timeout))
+						.fold_results(vec![], |mut acc, tx| {
+							acc.push(tx);
+							acc
+						})?;
 
 					info!("relaying {} withdraws", relays.len());
 					WithdrawRelayState::RelayWithdraws {

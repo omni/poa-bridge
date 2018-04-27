@@ -186,7 +186,7 @@ fn test_basic_deposit_then_withdraw() {
 	println!("== deploy the token");
 	let token_constructor = token::Token::default().constructor(include_str!("../../compiled_contracts/Token.bin").from_hex().unwrap());
 	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
-		from: address_from_str(authority_address),
+		from: address_from_str(user_address),
 		to: None,
 		gas: None,
 		gas_price: None,
@@ -217,7 +217,7 @@ fn test_basic_deposit_then_withdraw() {
 	println!("== set the token");
 	let set_token = foreign.functions().set_token_address().input(token_addr);
 	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
-		from: address_from_str(authority_address),
+		from: address_from_str(user_address),
 		to: Some(address_from_str(foreign_contract_address)),
 		gas: None,
 		gas_price: None,
@@ -246,9 +246,9 @@ fn test_basic_deposit_then_withdraw() {
 
 	// fund the contract
 	println!("== set mint agent");
-	let set_mint_agent = token::Token::default().functions().set_mint_agent().input(address_from_str(authority_address), true);
+	let set_mint_agent = token::Token::default().functions().set_mint_agent().input(address_from_str(user_address), true);
 	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
-		from: address_from_str(authority_address),
+		from: address_from_str(user_address),
 		to: Some(token_addr),
 		gas: None,
 		gas_price: None,
@@ -262,7 +262,7 @@ fn test_basic_deposit_then_withdraw() {
 	println!("== fund contract through minting");
 	let fund = token::Token::default().functions().mint().input(address_from_str(foreign_contract_address), ::std::u32::MAX);
 	let future = foreign_eth.send_transaction(web3::types::TransactionRequest {
-		from: address_from_str(authority_address),
+		from: address_from_str(user_address),
 		to: Some(token_addr),
 		gas: None,
 		gas_price: None,

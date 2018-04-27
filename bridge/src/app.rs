@@ -10,6 +10,9 @@ use web3::transports::http::Http;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use ethcore::ethstore::{EthStore,accounts_dir::RootDiskDirectory};
+use ethcore::account_provider::{AccountProvider, AccountProviderSettings};
+
 pub struct App<T> where T: Transport {
 	pub config: Config,
 	pub database_path: PathBuf,
@@ -17,7 +20,8 @@ pub struct App<T> where T: Transport {
 	pub home_bridge: home::HomeBridge,
 	pub foreign_bridge: foreign::ForeignBridge,
 	pub timer: Timer,
-	pub running: Arc<AtomicBool>
+	pub running: Arc<AtomicBool>,
+	pub keystore: AccountProvider,
 }
 
 pub struct Connections<T> where T: Transport {
@@ -60,6 +64,17 @@ impl App<Http> {
 		let foreign_url:String = format!("{}:{}", config.foreign.rpc_host, config.foreign.rpc_port);
 
 		let connections = Connections::new_http(handle, home_url.as_ref(), foreign_url.as_ref())?;
+		let keystore = EthStore::open(Box::new(RootDiskDirectory::at(&config.keystore))).map_err(|e| ErrorKind::KeyStore(e))?;
+
+		let keystore = AccountProvider::new(Box::new(keystore), AccountProviderSettings {
+			enable_hardware_wallets: false,
+			hardware_wallet_classic_key: false,
+			unlock_keep_secret: true,
+			blacklisted_accounts: vec![],
+		});
+		keystore.unlock_account_permanently(config.home.account, config.home.password()?).map_err(|e| ErrorKind::AccountError(e))?;
+		keystore.unlock_account_permanently(config.foreign.account, config.foreign.password()?).map_err(|e| ErrorKind::AccountError(e))?;
+
 		let result = App {
 			config,
 			database_path: database_path.as_ref().to_path_buf(),
@@ -68,6 +83,7 @@ impl App<Http> {
 			foreign_bridge: foreign::ForeignBridge::default(),
 			timer: Timer::default(),
 			running,
+			keystore,
 		};
 		Ok(result)
 	}
