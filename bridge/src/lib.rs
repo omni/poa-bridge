@@ -21,6 +21,13 @@ extern crate log;
 extern crate ethereum_types;
 #[macro_use]
 extern crate pretty_assertions;
+
+extern crate ethcore;
+extern crate ethcore_transaction;
+extern crate rlp;
+
+extern crate itertools;
+
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
@@ -38,3 +45,4 @@ pub mod error;
 pub mod util;
 pub mod message_to_mainnet;
 pub mod signature;
+pub mod transaction;

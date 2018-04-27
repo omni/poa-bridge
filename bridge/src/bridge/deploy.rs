@@ -2,11 +2,13 @@ use std::sync::Arc;
 use futures::{Future, Poll, future};
 use web3::Transport;
 use web3::confirm::SendTransactionWithConfirmation;
-use web3::types::{TransactionRequest};
+use web3::types::U256;
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind};
 use api;
+use transaction::prepare_raw_transaction;
+use ethcore_transaction::{Transaction, Action};
 
 pub enum Deployed {
 	/// No existing database found. Deployed new contracts.
@@ -20,16 +22,24 @@ enum DeployState<T: Transport + Clone> {
 	Deploying(future::Join<SendTransactionWithConfirmation<T>, SendTransactionWithConfirmation<T>>),
 }
 
-pub fn create_deploy<T: Transport + Clone>(app: Arc<App<T>>) -> Deploy<T> {
+pub fn create_deploy<T: Transport + Clone>(app: Arc<App<T>>, home_chain_id: u64, foreign_chain_id: u64, home_nonce: U256, foreign_nonce: U256) -> Deploy<T> {
 	Deploy {
 		app,
 		state: DeployState::CheckIfNeeded,
+		home_chain_id,
+		foreign_chain_id,
+		home_nonce,
+		foreign_nonce,
 	}
 }
 
 pub struct Deploy<T: Transport + Clone> {
 	app: Arc<App<T>>,
 	state: DeployState<T>,
+	home_chain_id: u64,
+	foreign_chain_id: u64,
+	home_nonce: U256,
+	foreign_nonce: U256,
 }
 
 impl<T: Transport + Clone> Future for Deploy<T> {
@@ -55,38 +65,34 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 							self.app.config.estimated_gas_cost_of_withdraw
 						);
 
-						let main_tx_request = TransactionRequest {
-							from: self.app.config.home.account,
-							to: None,
-							gas: Some(self.app.config.txs.home_deploy.gas.into()),
-							gas_price: Some(self.app.config.txs.home_deploy.gas_price.into()),
-							value: None,
-							data: Some(main_data.into()),
-							nonce: None,
-							condition: None,
+						let main_tx = Transaction {
+							nonce: self.home_nonce,
+							gas_price: self.app.config.txs.home_deploy.gas_price.into(),
+							gas: self.app.config.txs.home_deploy.gas.into(),
+							action: Action::Create,
+							value: U256::zero(),
+							data: main_data.into(),
 						};
 
-						let test_tx_request = TransactionRequest {
-							from: self.app.config.foreign.account,
-							to: None,
-							gas: Some(self.app.config.txs.foreign_deploy.gas.into()),
-							gas_price: Some(self.app.config.txs.foreign_deploy.gas_price.into()),
-							value: None,
-							data: Some(test_data.into()),
-							nonce: None,
-							condition: None,
+						let test_tx = Transaction {
+							nonce: self.foreign_nonce,
+							gas_price: self.app.config.txs.foreign_deploy.gas_price.into(),
+							gas: self.app.config.txs.foreign_deploy.gas.into(),
+							action: Action::Create,
+							value: U256::zero(),
+							data: test_data.into(),
 						};
 
-						let main_future = api::send_transaction_with_confirmation(
+						let main_future = api::send_raw_transaction_with_confirmation(
 							self.app.connections.home.clone(),
-							main_tx_request,
+							prepare_raw_transaction(main_tx, &self.app, &self.app.config.home, self.home_chain_id)?,
 							self.app.config.home.poll_interval,
 							self.app.config.home.required_confirmations
 						);
 
-						let test_future = api::send_transaction_with_confirmation(
+						let test_future = api::send_raw_transaction_with_confirmation(
 							self.app.connections.foreign.clone(),
-							test_tx_request,
+							prepare_raw_transaction(test_tx, &self.app, &self.app.config.foreign, self.foreign_chain_id)?,
 							self.app.config.foreign.poll_interval,
 							self.app.config.foreign.required_confirmations
 						);

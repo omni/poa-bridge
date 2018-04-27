@@ -117,29 +117,32 @@ macro_rules! test_app_stream {
 				txs: $txs,
 				home: Node {
 					account: $home_acc.parse().unwrap(),
-					ipc: "".into(),
 					contract: ContractConfig {
 						bin: Default::default(),
 					},
 					poll_interval: Duration::from_secs(0),
 					request_timeout: Duration::from_secs(5),
 					required_confirmations: $home_conf,
+					rpc_host: "".into(),
+					rpc_port: 8545,
 				},
 				foreign: Node {
 					account: $foreign_acc.parse().unwrap(),
-					ipc: "".into(),
 					contract: ContractConfig {
 						bin: Default::default(),
 					},
 					poll_interval: Duration::from_secs(0),
 					request_timeout: Duration::from_secs(5),
 					required_confirmations: $foreign_conf,
+					rpc_host: "".into(),
+					rpc_port: 8545,
 				},
 				authorities: Authorities {
 					accounts: $authorities_accs.iter().map(|a: &&str| a.parse().unwrap()).collect(),
 					required_signatures: $signatures,
 				},
 				estimated_gas_cost_of_withdraw: 100_000,
+				keystore: "/keys/".into(),
 			};
 
 			let app = App {

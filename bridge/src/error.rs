@@ -4,6 +4,8 @@ use std::io;
 use api::ApiCall;
 use tokio_timer::{TimerError, TimeoutError};
 use {web3, toml, ethabi, rustc_hex};
+use ethcore::ethstore;
+use ethcore::account_provider::{SignError, Error as AccountError};
 
 error_chain! {
 	types {
@@ -36,6 +38,18 @@ error_chain! {
 		Web3(err: web3::Error) {
 			description("web3 error"),
 			display("{:?}", err),
+		}
+		KeyStore(err: ethstore::Error) {
+		    description("keystore error"),
+		    display("keystore error {:?}", err),
+		}
+		SignError(err: SignError) {
+		    description("signing error")
+		    display("signing error {:?}", err),
+		}
+		AccountError(err: AccountError) {
+		    description("account error")
+		    display("account error {:?}", err),
 		}
 	}
 }
