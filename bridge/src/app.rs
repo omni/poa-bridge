@@ -72,17 +72,3 @@ impl App<Http> {
 		Ok(result)
 	}
 }
-
-impl<T: Transport> App<T> {
-	pub fn as_ref(&self) -> App<&T> {
-		App {
-			config: self.config.clone(),
-			connections: self.connections.as_ref(),
-			database_path: self.database_path.clone(),
-			home_bridge: home::HomeBridge::default(),
-			foreign_bridge: foreign::ForeignBridge::default(),
-			timer: self.timer.clone(),
-			running: self.running.clone(),
-		}
-	}
-}
