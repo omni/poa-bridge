@@ -25,6 +25,7 @@ extern crate pretty_assertions;
 extern crate ethcore;
 extern crate ethcore_transaction;
 extern crate rlp;
+extern crate keccak_hash;
 
 extern crate itertools;
 

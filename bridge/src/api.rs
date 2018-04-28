@@ -5,7 +5,7 @@ use futures::{Future, Stream, Poll};
 use tokio_timer::{Timer, Interval, Timeout};
 use web3::{self, api, Transport};
 use web3::api::Namespace;
-use web3::types::{Log, Filter, H256, H520, U256, FilterBuilder, Bytes, Address, CallRequest, BlockNumber};
+use web3::types::{Log, Filter, H256, U256, FilterBuilder, Bytes, Address, CallRequest, BlockNumber};
 use web3::helpers::{self, CallResult};
 use error::{Error, ErrorKind};
 
@@ -110,11 +110,16 @@ pub fn call<T: Transport>(transport: T, address: Address, payload: Bytes) -> Api
 	}
 }
 
-pub fn sign<T: Transport>(transport: T, address: Address, data: Bytes) -> ApiCall<H520, T::Out> {
-	ApiCall {
-		future: api::Eth::new(transport).sign(address, data),
-		message: "eth_sign",
-	}
+/// Returns a eth_sign-compatible hash of data to sign.
+/// The data is prepended with special message to prevent
+/// chosen-plaintext attacks.
+pub fn eth_data_hash(mut data: Vec<u8>) -> H256 {
+	use keccak_hash::keccak;
+	let mut message_data =
+		format!("\x19Ethereum Signed Message:\n{}", data.len())
+			.into_bytes();
+	message_data.append(&mut data);
+	keccak(message_data)
 }
 
 /// Used for `LogStream` initialization.

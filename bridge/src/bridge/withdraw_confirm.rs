@@ -30,12 +30,6 @@ fn withdraw_submit_signature_payload(foreign: &foreign::ForeignBridge, withdraw_
 enum WithdrawConfirmState<T: Transport> {
 	/// Withdraw confirm is waiting for logs.
 	Wait,
-	/// Signing withdraws.
-	SignWithdraws {
-		messages: Vec<Vec<u8>>,
-		future: JoinAll<Vec<Timeout<ApiCall<H520, T::Out>>>>,
-		block: u64,
-	},
 	/// Confirming withdraws.
 	ConfirmWithdraws {
 		future: JoinAll<Vec<Timeout<ApiCall<H256, T::Out>>>>,
@@ -90,33 +84,6 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 		loop {
 			let next_state = match self.state {
 				WithdrawConfirmState::Wait => {
-					let item = try_stream!(self.logs.poll());
-					info!("got {} new withdraws to sign", item.logs.len());
-					let withdraw_messages = item.logs
-						.into_iter()
-						.map(|log| {
-							 info!("withdraw is ready for signature submission. tx hash {}", log.transaction_hash.unwrap());
-							 Ok(MessageToMainnet::from_log(log)?.to_bytes())
-						})
-						.collect::<Result<Vec<_>, Error>>()?;
-
-					let requests = withdraw_messages.clone()
-						.into_iter()
-						.map(|message| {
-							self.app.timer.timeout(
-								api::sign(&self.app.connections.foreign, self.app.config.foreign.account, Bytes(message)),
-								self.app.config.foreign.request_timeout)
-						})
-						.collect::<Vec<_>>();
-
-					info!("signing");
-					WithdrawConfirmState::SignWithdraws {
-						future: join_all(requests),
-						messages: withdraw_messages,
-						block: item.to,
-					}
-				},
-				WithdrawConfirmState::SignWithdraws { ref mut future, ref mut messages, block } => {
 					let foreign_balance = self.foreign_balance.read().unwrap();
 					if foreign_balance.is_none() {
 						warn!("foreign contract balance is unknown");
@@ -128,7 +95,31 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						return Ok(futures::Async::NotReady);
 					}
 
-					let signatures = try_ready!(future.poll());
+					let item = try_stream!(self.logs.poll());
+					info!("got {} new withdraws to sign", item.logs.len());
+					let mut messages = item.logs
+						.into_iter()
+						.map(|log| {
+							 info!("withdraw is ready for signature submission. tx hash {}", log.transaction_hash.unwrap());
+							 Ok(MessageToMainnet::from_log(log)?.to_bytes())
+						})
+						.collect::<Result<Vec<_>, Error>>()?;
+
+					info!("signing");
+
+					let signatures = messages.clone()
+						.into_iter()
+						.map(|message|
+							app.keystore.sign(self.app.config.foreign.account, None, api::eth_data_hash(message)))
+						.map_results(|sig| H520::from(sig.into_electrum()))
+						.fold_results(vec![], |mut acc, sig| {
+							acc.push(sig);
+							acc
+						})
+						.map_err(|e| ErrorKind::SignError(e))?;
+
+					let block = item.to;
+
 					let balance_required = U256::from(self.app.config.txs.withdraw_confirm.gas) * U256::from(self.app.config.txs.withdraw_confirm.gas_price) * U256::from(signatures.len());
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
