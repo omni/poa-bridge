@@ -19,7 +19,7 @@ use futures::{Stream, future};
 use tokio_core::reactor::Core;
 
 use bridge::app::App;
-use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, create_nonce_check, Deployed};
+use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, Deployed};
 use bridge::config::Config;
 use bridge::error::{Error, ErrorKind};
 use bridge::web3;
@@ -141,15 +141,8 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Home chain ID: {} Foreign chain ID: {}", home_chain_id, foreign_chain_id);
 
-	let (home_nonce, _) = event_loop.run(create_nonce_check(app.connections.home.clone(), app.config.home.clone()).into_future()).expect("can't retrieve home nonce");
-	let home_nonce = home_nonce.expect("can't retrieve home nonce");
-
-	let (foreign_nonce, _) = event_loop.run(create_nonce_check(app.connections.foreign.clone(), app.config.foreign.clone()).into_future()).expect("can't retrieve foreign nonce");
-	let foreign_nonce = foreign_nonce.expect("can't retrieve foreign nonce");
-
-
 	info!(target: "bridge", "Deploying contracts (if needed)");
-	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id, home_nonce, foreign_nonce))?;
+	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id))?;
 
 	let database = match deployed {
 		Deployed::New(database) => {

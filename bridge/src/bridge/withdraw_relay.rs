@@ -1,9 +1,9 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Future, Stream, Poll};
+use futures::{self, Future, Stream, stream::{Collect, iter_ok, IterOk, Buffered}, Poll};
 use futures::future::{JoinAll, join_all, Join};
 use tokio_timer::Timeout;
 use web3::Transport;
-use web3::types::{H256, U256, Address, FilterBuilder, Log, Bytes};
+use web3::types::{U256, Address, FilterBuilder, Log, Bytes};
 use ethabi::{RawLog, self};
 use app::App;
 use api::{self, LogStream, ApiCall};
@@ -13,8 +13,8 @@ use database::Database;
 use error::{self, Error, ErrorKind};
 use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
-use transaction::prepare_raw_transaction;
 use ethcore_transaction::{Transaction, Action};
+use super::nonce::{NonceCheck, SendRawTransaction};
 use itertools::Itertools;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
@@ -70,13 +70,13 @@ pub enum WithdrawRelayState<T: Transport> {
 		block: u64,
 	},
 	RelayWithdraws {
-		future: JoinAll<Vec<Timeout<ApiCall<H256, T::Out>>>>,
+		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
 		block: u64,
 	},
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>, home_chain_id: u64, home_nonce: Arc<RwLock<Option<U256>>>) -> WithdrawRelay<T> {
+pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>, home_chain_id: u64) -> WithdrawRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_relay,
 		request_timeout: app.config.foreign.request_timeout,
@@ -93,7 +93,6 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		app,
 		home_balance,
 		home_chain_id,
-		home_nonce,
 	}
 }
 
@@ -104,7 +103,6 @@ pub struct WithdrawRelay<T: Transport> {
 	foreign_contract: Address,
 	home_contract: Address,
 	home_balance: Arc<RwLock<Option<U256>>>,
-	home_nonce: Arc<RwLock<Option<U256>>>,
 	home_chain_id: u64,
 }
 
@@ -117,6 +115,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 		let gas = self.app.config.txs.withdraw_relay.gas.into();
 		let contract = self.home_contract.clone();
 		let home = &self.app.config.home;
+		let t = &self.app.connections.home;
 		let chain_id = self.home_chain_id;
 
 		loop {
@@ -174,11 +173,6 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						warn!("home contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
-					let home_nonce = self.home_nonce.read().unwrap();
-					if home_nonce.is_none() {
-						warn!("home nonce is unknown");
-						return Ok(futures::Async::NotReady);
-					}
 
 					let (messages_raw, signatures_raw) = try_ready!(future.poll());
 					info!("fetching messages and signatures complete");
@@ -196,6 +190,8 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						})
 						.collect::<ethabi::Result<Vec<_>>>()
 						.map_err(error::Error::from)?;
+
+					let len = messages.len();
 
 					let signatures = signatures_raw
 						.iter()
@@ -228,23 +224,15 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 									gas, gas_price,
 									value: U256::zero(),
 									data: payload.0,
-									nonce: home_nonce.unwrap(),
+									nonce: U256::zero(),
 									action: Action::Call(contract),
 								};
-								prepare_raw_transaction(tx, app, home, chain_id)
-							})
-						.map_results(|tx|
-							app.timer.timeout(
-								api::send_raw_transaction(&app.connections.home, tx),
-								app.config.home.request_timeout))
-						.fold_results(vec![], |mut acc, tx| {
-							acc.push(tx);
-							acc
-						})?;
+							    api::send_transaction_with_nonce(t.clone(), app.clone(), home.clone(), tx, chain_id, SendRawTransaction(t.clone()))
+							}).collect_vec();
 
-					info!("relaying {} withdraws", relays.len());
+					info!("relaying {} withdraws", len);
 					WithdrawRelayState::RelayWithdraws {
-						future: join_all(relays),
+						future: iter_ok(relays).buffered(1).collect(),
 						block,
 					}
 				},

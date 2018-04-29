@@ -25,6 +25,7 @@ rlp = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 keccak-hash = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 ethcore-transaction = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 itertools = "0.7"
+jsonrpc-core = "8.0"
 
 [dev-dependencies]
 tempdir = "0.3"

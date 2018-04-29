@@ -1,7 +1,7 @@
 mod deploy;
 mod balance;
 mod chain_id;
-mod nonce;
+pub mod nonce;
 mod deposit_relay;
 mod withdraw_confirm;
 mod withdraw_relay;
@@ -18,7 +18,6 @@ use error::{Error, ErrorKind, Result};
 
 pub use self::deploy::{Deploy, Deployed, create_deploy};
 pub use self::balance::{BalanceCheck, create_balance_check};
-pub use self::nonce::{NonceCheck, create_nonce_check};
 pub use self::chain_id::{ChainIdRetrieval, create_chain_id_retrieval};
 pub use self::deposit_relay::{DepositRelay, create_deposit_relay};
 pub use self::withdraw_relay::{WithdrawRelay, create_withdraw_relay};
@@ -85,20 +84,14 @@ pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, ho
 pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, F> {
 	let home_balance = Arc::new(RwLock::new(None));
 	let foreign_balance = Arc::new(RwLock::new(None));
-	let home_nonce = Arc::new(RwLock::new(None));
-	let foreign_nonce = Arc::new(RwLock::new(None));
 	Bridge {
 		foreign_balance_check: create_balance_check(app.connections.foreign.clone(), app.config.foreign.clone()),
 		home_balance_check: create_balance_check(app.connections.home.clone(), app.config.home.clone()),
 		foreign_balance: foreign_balance.clone(),
 		home_balance: home_balance.clone(),
-		home_nonce: home_nonce.clone(),
-		foreign_nonce: foreign_nonce.clone(),
-		home_nonce_check: create_nonce_check(app.connections.home.clone(), app.config.home.clone()),
-		foreign_nonce_check: create_nonce_check(app.connections.foreign.clone(), app.config.foreign.clone()),
-		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_nonce.clone()),
-		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id, home_nonce.clone()),
-		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_nonce.clone()),
+		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
+		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id),
+		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
 		state: BridgeStatus::Wait,
 		backend,
 		running: app.running.clone(),
@@ -110,10 +103,6 @@ pub struct Bridge<T: Transport, F> {
 	foreign_balance_check: BalanceCheck<T>,
 	home_balance: Arc<RwLock<Option<U256>>>,
 	foreign_balance: Arc<RwLock<Option<U256>>>,
-	home_nonce: Arc<RwLock<Option<U256>>>,
-	foreign_nonce: Arc<RwLock<Option<U256>>>,
-	home_nonce_check: NonceCheck<T>,
-	foreign_nonce_check: NonceCheck<T>,
 	deposit_relay: DepositRelay<T>,
 	withdraw_relay: WithdrawRelay<T>,
 	withdraw_confirm: WithdrawConfirm<T>,
@@ -145,17 +134,6 @@ impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
 		}
 	}
 
-	fn check_nonces(&mut self) -> Poll<Option<()>, Error> {
-		let mut home_nonce = self.home_nonce.write().unwrap();
-		let mut foreign_nonce = self.foreign_nonce.write().unwrap();
-		*home_nonce = try_bridge!(self.home_nonce_check.poll()).or(*home_nonce);
-		*foreign_nonce = try_bridge!(self.foreign_nonce_check.poll()).or(*foreign_nonce);
-		if home_nonce.is_none() || foreign_nonce.is_none() {
-			Ok(Async::NotReady)
-		} else {
-			Ok(Async::Ready(None))
-		}
-	}
 }
 
 impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
@@ -181,35 +159,22 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						return Ok(Async::NotReady)
 					}
 
-					let nonce_is_absent = {
-						let mut home_nonce = self.home_nonce.read().unwrap();
-						let mut foreign_nonce = self.foreign_nonce.read().unwrap();
-						home_nonce.is_none() || foreign_nonce.is_none()
-					};
-					if nonce_is_absent {
-						self.check_nonces()?;
-						return Ok(Async::NotReady)
-					}
-
 					let d_relay = try_bridge!(self.deposit_relay.poll()).map(BridgeChecked::DepositRelay);
 
 					if d_relay.is_some() {
 						self.check_balances()?;
-						self.check_nonces()?;
 					}
 
 					let w_relay = try_bridge!(self.withdraw_relay.poll()).map(BridgeChecked::WithdrawRelay);
 
 					if w_relay.is_some() {
 						self.check_balances()?;
-						self.check_nonces()?;
 					}
 
 					let w_confirm = try_bridge!(self.withdraw_confirm.poll()).map(BridgeChecked::WithdrawConfirm);
 
 					if w_confirm.is_some() {
 						self.check_balances()?;
-						self.check_nonces()?;
 					}
 
 					let result: Vec<_> = [d_relay, w_relay, w_confirm]

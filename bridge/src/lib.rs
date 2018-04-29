@@ -26,6 +26,7 @@ extern crate ethcore;
 extern crate ethcore_transaction;
 extern crate rlp;
 extern crate keccak_hash;
+extern crate jsonrpc_core as rpc;
 
 extern crate itertools;
 

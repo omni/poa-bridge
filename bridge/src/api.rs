@@ -18,12 +18,6 @@ pub struct ApiCall<T, F> {
 	message: &'static str,
 }
 
-impl<T, F> ApiCall<T, F> {
-	pub fn message(&self) -> &'static str {
-		self.message
-	}
-}
-
 impl<T: DeserializeOwned, F: Future<Item = Value, Error = web3::Error>>Future for ApiCall<T, F> {
 	type Item = T;
 	type Error = Error;
@@ -92,6 +86,8 @@ pub fn send_raw_transaction<T: Transport>(transport: T, tx: Bytes) -> ApiCall<H2
 		message: "eth_sendRawTransaction",
 	}
 }
+
+pub use bridge::nonce::send_transaction_with_nonce;
 
 /// Imperative wrapper for web3 function.
 pub fn call<T: Transport>(transport: T, address: Address, payload: Bytes) -> ApiCall<Bytes, T::Out> {
