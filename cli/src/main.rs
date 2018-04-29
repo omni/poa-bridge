@@ -141,6 +141,15 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Home chain ID: {} Foreign chain ID: {}", home_chain_id, foreign_chain_id);
 
+	{
+		use bridge::api;
+		let mut home_nonce = app.config.home.info.nonce.write().unwrap();
+		let mut foreign_nonce = app.config.foreign.info.nonce.write().unwrap();
+
+		*home_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.home.clone(), app.config.home.account, None)).expect("can't initialize home nonce");
+		*foreign_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.foreign.clone(), app.config.foreign.account, None)).expect("can't initialize foreign nonce");
+	}
+
 	info!(target: "bridge", "Deploying contracts (if needed)");
 	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id))?;
 
