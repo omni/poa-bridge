@@ -63,6 +63,29 @@ pub struct Node {
 	pub rpc_host: String,
 	pub rpc_port: u16,
 	pub password: PathBuf,
+	pub info: NodeInfo,
+}
+
+use std::sync::{Arc, RwLock};
+use web3::types::U256;
+
+#[derive(Debug, Clone)]
+pub struct NodeInfo {
+    pub nonce: Arc<RwLock<U256>>,
+}
+
+impl Default for NodeInfo {
+	fn default() -> Self {
+		NodeInfo {
+			nonce: Arc::new(RwLock::new(U256::zero())),
+		}
+	}
+}
+
+impl PartialEq for NodeInfo {
+	fn eq(&self, rhs: &Self) -> bool {
+		*self.nonce.read().unwrap() == *rhs.nonce.read().unwrap()
+	}
 }
 
 impl Node {
@@ -83,6 +106,7 @@ impl Node {
 			rpc_host: node.rpc_host.unwrap(),
 			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
 			password: node.password,
+			info: Default::default(),
 		};
 
 		Ok(result)

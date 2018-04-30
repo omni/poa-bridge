@@ -1,7 +1,6 @@
 #![allow(unknown_lints)]
 
 use std::io;
-use api::ApiCall;
 use tokio_timer::{TimerError, TimeoutError};
 use {web3, toml, ethabi, rustc_hex};
 use ethcore::ethstore;
@@ -54,12 +53,13 @@ error_chain! {
 	}
 }
 
-impl<T, F> From<TimeoutError<ApiCall<T, F>>> for Error {
-	fn from(err: TimeoutError<ApiCall<T, F>>) -> Self {
+impl<T> From<TimeoutError<T>> for Error {
+	fn from(err: TimeoutError<T>) -> Self {
 		match err {
-			TimeoutError::Timer(call, _) | TimeoutError::TimedOut(call) => {
-				ErrorKind::Timeout(call.message()).into()
+			TimeoutError::Timer(_call, _) | TimeoutError::TimedOut(_call) => {
+				ErrorKind::Timeout("communication timeout").into()
 			}
 		}
 	}
 }
+

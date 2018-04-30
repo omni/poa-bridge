@@ -1,14 +1,13 @@
 use std::sync::Arc;
 use futures::{Future, Poll, future};
 use web3::Transport;
-use web3::confirm::SendTransactionWithConfirmation;
 use web3::types::U256;
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind};
 use api;
-use transaction::prepare_raw_transaction;
 use ethcore_transaction::{Transaction, Action};
+use super::nonce::{NonceCheck,TransactionWithConfirmation};
 
 pub enum Deployed {
 	/// No existing database found. Deployed new contracts.
@@ -19,17 +18,15 @@ pub enum Deployed {
 
 enum DeployState<T: Transport + Clone> {
 	CheckIfNeeded,
-	Deploying(future::Join<SendTransactionWithConfirmation<T>, SendTransactionWithConfirmation<T>>),
+	Deploying(future::Join<NonceCheck<T, TransactionWithConfirmation<T>>, NonceCheck<T, TransactionWithConfirmation<T>>>),
 }
 
-pub fn create_deploy<T: Transport + Clone>(app: Arc<App<T>>, home_chain_id: u64, foreign_chain_id: u64, home_nonce: U256, foreign_nonce: U256) -> Deploy<T> {
+pub fn create_deploy<T: Transport + Clone>(app: Arc<App<T>>, home_chain_id: u64, foreign_chain_id: u64) -> Deploy<T> {
 	Deploy {
 		app,
 		state: DeployState::CheckIfNeeded,
 		home_chain_id,
 		foreign_chain_id,
-		home_nonce,
-		foreign_nonce,
 	}
 }
 
@@ -38,8 +35,6 @@ pub struct Deploy<T: Transport + Clone> {
 	state: DeployState<T>,
 	home_chain_id: u64,
 	foreign_chain_id: u64,
-	home_nonce: U256,
-	foreign_nonce: U256,
 }
 
 impl<T: Transport + Clone> Future for Deploy<T> {
@@ -66,7 +61,7 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						);
 
 						let main_tx = Transaction {
-							nonce: self.home_nonce,
+							nonce: U256::zero(),
 							gas_price: self.app.config.txs.home_deploy.gas_price.into(),
 							gas: self.app.config.txs.home_deploy.gas.into(),
 							action: Action::Create,
@@ -75,7 +70,7 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						};
 
 						let test_tx = Transaction {
-							nonce: self.foreign_nonce,
+							nonce: U256::zero(),
 							gas_price: self.app.config.txs.foreign_deploy.gas_price.into(),
 							gas: self.app.config.txs.foreign_deploy.gas.into(),
 							action: Action::Create,
@@ -83,26 +78,20 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 							data: test_data.into(),
 						};
 
-						let main_future = api::send_raw_transaction_with_confirmation(
-							self.app.connections.home.clone(),
-							prepare_raw_transaction(main_tx, &self.app, &self.app.config.home, self.home_chain_id)?,
-							self.app.config.home.poll_interval,
-							self.app.config.home.required_confirmations
-						);
+						let main_future = api::send_transaction_with_nonce(self.app.connections.home.clone(), self.app.clone(),
+																		   self.app.config.home.clone(), main_tx, self.home_chain_id,
+																		   TransactionWithConfirmation(self.app.connections.home.clone(), self.app.config.home.poll_interval, self.app.config.home.required_confirmations));
 
-						let test_future = api::send_raw_transaction_with_confirmation(
-							self.app.connections.foreign.clone(),
-							prepare_raw_transaction(test_tx, &self.app, &self.app.config.foreign, self.foreign_chain_id)?,
-							self.app.config.foreign.poll_interval,
-							self.app.config.foreign.required_confirmations
-						);
+						let test_future =  api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(),
+																			self.app.config.foreign.clone(), test_tx, self.foreign_chain_id,
+																			TransactionWithConfirmation(self.app.connections.foreign.clone(), self.app.config.foreign.poll_interval, self.app.config.foreign.required_confirmations));
 
 						DeployState::Deploying(main_future.join(test_future))
 					},
 					Err(err) => return Err(err.into()),
 				},
 				DeployState::Deploying(ref mut future) => {
-					let (main_receipt, test_receipt) = try_ready!(future.poll().map_err(ErrorKind::Web3));
+					let (main_receipt, test_receipt) = try_ready!(future.poll());
 					let database = Database {
 						home_contract_address: main_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
 						foreign_contract_address: test_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
