@@ -131,7 +131,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 #[cfg(test)]
 mod tests {
 	use rustc_hex::FromHex;
-	use web3::types::{Log, Bytes};
+	use web3::types::{Log, Bytes, Address};
 	use contracts::{home, foreign};
 	use super::deposit_relay_payload;
 
@@ -145,7 +145,14 @@ mod tests {
 			data: data.into(),
 			topics: vec!["e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c".into()],
 			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
-			..Default::default()
+			address: Address::zero(),
+			block_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			block_number: None,
+			removed: None,
 		};
 
 		let payload = deposit_relay_payload(&home, &foreign, log).unwrap();
