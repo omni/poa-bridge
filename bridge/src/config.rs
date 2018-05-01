@@ -2,8 +2,11 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
 use std::time::Duration;
+#[cfg(feature = "deploy")]
 use rustc_hex::FromHex;
-use web3::types::{Address, Bytes};
+use web3::types::Address;
+#[cfg(feature = "deploy")]
+use web3::types::Bytes;
 use error::{ResultExt, Error};
 use {toml};
 
@@ -56,6 +59,7 @@ impl Config {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
 	pub account: Address,
+	#[cfg(feature = "deploy")]
 	pub contract: ContractConfig,
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
@@ -92,6 +96,7 @@ impl Node {
 	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
 		let result = Node {
 			account: node.account,
+			#[cfg(feature = "deploy")]
 			contract: ContractConfig {
 				bin: {
 					let mut read = String::new();
@@ -162,6 +167,7 @@ impl TransactionConfig {
 	}
 }
 
+#[cfg(feature = "deploy")]
 #[derive(Debug, PartialEq, Clone)]
 pub struct ContractConfig {
 	pub bin: Bytes,
@@ -192,9 +198,9 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
-	#[serde(deny_unknown_fields)]
 	pub struct Node {
 		pub account: Address,
+		#[cfg(feature = "deploy")]
 		pub contract: ContractConfig,
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
@@ -239,8 +245,11 @@ mod load {
 #[cfg(test)]
 mod tests {
 	use std::time::Duration;
+	#[cfg(feature = "deploy")]
 	use rustc_hex::FromHex;
-	use super::{Config, Node, ContractConfig, Transactions, Authorities};
+	use super::{Config, Node, Transactions, Authorities};
+	#[cfg(feature = "deploy")]
+	use super::ContractConfig;
 	#[cfg(feature = "deploy")]
     use super::TransactionConfig;
 
@@ -282,10 +291,12 @@ required_signatures = 2
 home_deploy = { gas = 20 }
 "#;
 
+		#[allow(unused_mut)]
 		let mut expected = Config {
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				#[cfg(feature = "deploy")]
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -299,6 +310,7 @@ home_deploy = { gas = 20 }
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				#[cfg(feature = "deploy")]
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
@@ -367,6 +379,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				#[cfg(feature = "deploy")]
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
@@ -380,6 +393,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				#[cfg(feature = "deploy")]
 				contract: ContractConfig {
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
