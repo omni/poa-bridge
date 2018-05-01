@@ -83,7 +83,7 @@ fn test_insufficient_funds() {
 	assert!(Command::new("cargo")
 		.env("RUST_BACKTRACE", "1")
 		.current_dir("../cli")
-		.arg("build")
+		.args(&["build", "--features", "deploy"])
 		.status()
 		.expect("failed to build bridge cli")
 		.success());
