@@ -124,7 +124,9 @@ impl Node {
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct Transactions {
+	#[cfg(feature = "deploy")]
 	pub home_deploy: TransactionConfig,
+	#[cfg(feature = "deploy")]
 	pub foreign_deploy: TransactionConfig,
 	pub deposit_relay: TransactionConfig,
 	pub withdraw_confirm: TransactionConfig,
@@ -134,7 +136,9 @@ pub struct Transactions {
 impl Transactions {
 	fn from_load_struct(cfg: load::Transactions) -> Self {
 		Transactions {
+			#[cfg(feature = "deploy")]
 			home_deploy: cfg.home_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
+			#[cfg(feature = "deploy")]
 			foreign_deploy: cfg.foreign_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			deposit_relay: cfg.deposit_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			withdraw_confirm: cfg.withdraw_confirm.map(TransactionConfig::from_load_struct).unwrap_or_default(),
@@ -201,9 +205,10 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
-	#[serde(deny_unknown_fields)]
 	pub struct Transactions {
+		#[cfg(feature = "deploy")]
 		pub home_deploy: Option<TransactionConfig>,
+		#[cfg(feature = "deploy")]
 		pub foreign_deploy: Option<TransactionConfig>,
 		pub deposit_relay: Option<TransactionConfig>,
 		pub withdraw_confirm: Option<TransactionConfig>,
@@ -235,7 +240,9 @@ mod load {
 mod tests {
 	use std::time::Duration;
 	use rustc_hex::FromHex;
-	use super::{Config, Node, ContractConfig, Transactions, Authorities, TransactionConfig};
+	use super::{Config, Node, ContractConfig, Transactions, Authorities};
+	#[cfg(feature = "deploy")]
+    use super::TransactionConfig;
 
 	#[test]
 	fn load_full_setup_from_str() {
@@ -313,10 +320,12 @@ home_deploy = { gas = 20 }
 			keystore: "/keys/".into(),
 		};
 
-		expected.txs.home_deploy = TransactionConfig {
-			gas: 20,
-			gas_price: 0,
-		};
+		#[cfg(feature = "deploy")] {
+			expected.txs.home_deploy = TransactionConfig {
+				gas: 20,
+				gas_price: 0,
+			};
+		}
 
 		let config = Config::load_from_str(toml).unwrap();
 		assert_eq!(expected, config);

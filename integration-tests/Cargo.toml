@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["snd <kruemaxi@gmail.com>"]
 
 [dependencies]
-bridge = { path = "../bridge" }
+bridge = { path = "../bridge", features = ["deploy"] }
 futures = "0.1"
 jsonrpc-core = "8.0"
 web3 = "0.3"

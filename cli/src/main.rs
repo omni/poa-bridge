@@ -151,7 +151,11 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		*foreign_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.foreign.clone(), app.config.foreign.account, None)).expect("can't initialize foreign nonce");
 	}
 
+	#[cfg(feature = "deploy")]
 	info!(target: "bridge", "Deploying contracts (if needed)");
+	#[cfg(not(feature = "deploy"))]
+	info!(target: "bridge", "Reading the database");
+
 	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id))?;
 
 	let database = match deployed {

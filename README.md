@@ -103,14 +103,14 @@ requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.
 
 requires `solc` to be in `$PATH`: [installation instructions.](https://solidity.readthedocs.io/en/develop/installing-solidity.html)
 
-assuming you've cloned the bridge (`git clone git@github.com:paritytech/parity-bridge.git`)
+assuming you've cloned the bridge (`git clone git@github.com:poanetwork/parity-bridge.git`)
 and are in the project directory (`cd parity-bridge`) run:
 
 ```
-cargo build -p bridge-cli --release
+make
 ```
 
-to install copy `../target/release/bridge` into a folder that's in your `$PATH`.
+and install `../target/release/bridge` in your `$PATH`.
 
 ### run
 
@@ -120,8 +120,6 @@ bridge --config config.toml --database db.toml
 
 - `--config` - location of the configuration file. configuration file must exist
 - `--database` - location of the database file.
-  if there is no file at specified location, new bridge contracts will be deployed
-  and new database will be created
 
 ### configuration [file example](./examples/config.toml)
 
@@ -151,10 +149,6 @@ accounts = [
     "0x006e27b6a72e1f34c626762f3c4761547aff1421"
 ]
 required_signatures = 2
-
-[transactions]
-home_deploy = { gas = 500000 }
-foreign_deploy = { gas = 500000 }
 ```
 
 #### options
@@ -190,10 +184,6 @@ foreign_deploy = { gas = 500000 }
 
 #### transaction options
 
-- `transaction.home_deploy.gas` - specify how much gas should be consumed by home contract deploy
-- `transaction.home_deploy.gas_price` - specify gas price for home contract deploy
-- `transaction.foreign_deploy.gas` - specify how much gas should be consumed by foreign contract deploy
-- `transaction.foreign_deploy.gas_price` - specify gas price for foreign contract deploy
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
 - `transaction.deposit_relay.gas_price` - specify gas price for deposit relay
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
@@ -206,8 +196,6 @@ foreign_deploy = { gas = 500000 }
 ```toml
 home_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
 foreign_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
-home_deploy = 100
-foreign_deploy = 101
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
 checked_withdraw_confirm = 121
@@ -217,8 +205,6 @@ checked_withdraw_confirm = 121
 
 - `home_contract_address` - address of the bridge contract on home chain
 - `foreign_contract_address` - address of the bridge contract on foreign chain
-- `home_deploy` - block number at which home contract has been deployed
-- `foreign_deploy` - block number at which foreign contract has been deployed
 - `checked_deposit_relay` - number of the last block for which an authority has relayed deposits to the foreign
 - `checked_withdraw_relay` - number of the last block for which an authority has relayed withdraws to the home
 - `checked_withdraw_confirm` - number of the last block for which an authority has confirmed withdraw

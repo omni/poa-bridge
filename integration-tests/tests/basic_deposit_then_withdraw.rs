@@ -82,7 +82,7 @@ fn test_basic_deposit_then_withdraw() {
 	assert!(Command::new("cargo")
 		.env("RUST_BACKTRACE", "1")
 		.current_dir("../cli")
-		.arg("build")
+		.args(&["build", "--features", "deploy"])
 		.status()
 		.expect("failed to build bridge cli")
 		.success());
