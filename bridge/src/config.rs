@@ -288,6 +288,7 @@ home_deploy = { gas = 20 }
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
 				password: "password".into(),
+				info: Default::default(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -300,6 +301,7 @@ home_deploy = { gas = 20 }
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
 				password: "password".into(),
+				info: Default::default(),
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -365,6 +367,7 @@ required_signatures = 2
 				rpc_host: "".into(),
 				rpc_port: 8545,
 				password: "password".into(),
+				info: Default::default(),
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -377,6 +380,7 @@ required_signatures = 2
 				rpc_host: "".into(),
 				rpc_port: 8545,
 				password: "password".into(),
+				info: Default::default(),
 			},
 			authorities: Authorities {
 				accounts: vec![

@@ -257,7 +257,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 #[cfg(test)]
 mod tests {
 	use rustc_hex::FromHex;
-	use web3::types::{Log, Bytes};
+	use web3::types::{Log, Bytes, Address};
 	use contracts::foreign;
 	use super::signatures_payload;
 
@@ -272,7 +272,14 @@ mod tests {
 			data: data.into(),
 			topics: vec!["eb043d149eedb81369bec43d4c3a3a53087debc88d2525f13bfaa3eecda28b5c".into()],
 			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
-			..Default::default()
+			address: Address::zero(),
+			block_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			block_number: None,
+			removed: None,
 		};
 
 		let assignment = signatures_payload(&foreign, 2, my_address, log).unwrap().unwrap();
@@ -296,7 +303,14 @@ mod tests {
 			data: data.into(),
 			topics: vec!["eb043d149eedb81369bec43d4c3a3a53087debc88d2525f13bfaa3eecda28b5c".into()],
 			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
-			..Default::default()
+			address: Address::zero(),
+			block_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			block_number: None,
+			removed: None,
 		};
 
 		let assignment = signatures_payload(&foreign, 2, my_address, log).unwrap();
