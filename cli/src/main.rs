@@ -63,8 +63,9 @@ impl From<(i32, Error)> for UserFacingError {
 
 
 const USAGE: &'static str = r#"
-Ethereum-Kovan bridge.
+POA-Ethereum bridge.
     Copyright 2017 Parity Technologies (UK) Limited
+    Copyright 2018 POA Networks Ltd.
 
 Usage:
     bridge --config <config> --database <database>
