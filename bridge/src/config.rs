@@ -19,6 +19,7 @@ pub struct Config {
 	pub foreign: Node,
 	pub authorities: Authorities,
 	pub txs: Transactions,
+	#[cfg(feature = "deploy")]
 	pub estimated_gas_cost_of_withdraw: u32,
 	pub keystore: PathBuf,
 }
@@ -45,6 +46,7 @@ impl Config {
 				required_signatures: config.authorities.required_signatures,
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
+			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
 			keystore: config.keystore,
 		};
@@ -181,12 +183,12 @@ mod load {
 	use web3::types::Address;
 
 	#[derive(Deserialize)]
-	#[serde(deny_unknown_fields)]
 	pub struct Config {
 		pub home: Node,
 		pub foreign: Node,
 		pub authorities: Authorities,
 		pub transactions: Option<Transactions>,
+		#[cfg(feature = "deploy")]
 		pub estimated_gas_cost_of_withdraw: u32,
 		pub keystore: PathBuf,
 	}
@@ -318,6 +320,7 @@ home_deploy = { gas = 20 }
 				],
 				required_signatures: 2,
 			},
+			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: 100_000,
 			keystore: "/keys/".into(),
 		};
@@ -399,6 +402,7 @@ required_signatures = 2
 				],
 				required_signatures: 2,
 			},
+			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: 200_000_000,
 			keystore: "/keys".into(),
 		};
