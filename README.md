@@ -99,9 +99,9 @@ accounts = [
 required_signatures = 2
 
 [transactions]
-deposit_relay = { gas = 3000000 }
-withdraw_relay = { gas = 3000000 }
-withdraw_confirm = { gas = 3000000 }
+deposit_relay = { gas = 3000000, gas_price = 1000000000 }
+withdraw_relay = { gas = 3000000, gas_price = 1000000000 }
+withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 ```
 
 #### Options
