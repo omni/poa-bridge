@@ -1,6 +1,7 @@
 # POA-Ethereum Bridge
 
 [![Join the chat at https://gitter.im/poanetwork/poa-bridge](https://badges.gitter.im/poanetwork/poa-bridge.svg)](https://gitter.im/poanetwork/poa-bridge?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Waffle.io - Columns and their card count](https://badge.waffle.io/poanetwork/poa-bridge.svg?columns=all)](https://waffle.io/poanetwork/poa-bridge)
 
 This is software to be operated by *POA bridge validators* to faciliate proof-of-authority
 based briding of POA to tokens on an **another** Ethereum-based blockchain.
