@@ -28,10 +28,13 @@ const ERR_UNKNOWN: i32 = 1;
 const ERR_IO_ERROR: i32 = 2;
 const ERR_SHUTDOWN_REQUESTED: i32 = 3;
 const ERR_INSUFFICIENT_FUNDS: i32 = 4;
-const ERR_RPC_ERROR: i32 = 5;
+const ERR_GAS_TOO_LOW: i32 = 5;
+const ERR_GAS_PRICE_TOO_LOW: i32 = 6;
+const ERR_NONCE_REUSE: i32 = 7;
 const ERR_CANNOT_CONNECT: i32 = 10;
 const ERR_CONNECTION_LOST: i32 = 11;
 const ERR_BRIDGE_CRASH: i32 = 11;
+const ERR_RPC_ERROR: i32 = 20;
 
 pub struct UserFacingError(i32, Error);
 
@@ -193,9 +196,22 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 			    return Err((ERR_INSUFFICIENT_FUNDS, e.into()).into());
 		    },
      	    Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Rpc(e), _)), _)) => {
-				if e.code == rpc::ErrorCode::ServerError(-32010) {
+
+				if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Insufficient funds") {
 					info!("Insufficient funds, terminating");
 					return Err((ERR_INSUFFICIENT_FUNDS, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas is too low") {
+					info!("Transaction gas is too low");
+					return Err((ERR_GAS_TOO_LOW, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas price is too low") {
+					info!("Transaction gas price is too low");
+					return Err((ERR_GAS_PRICE_TOO_LOW, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas price is too low. There is another") {
+					info!("Nonce reuse");
+					return Err((ERR_NONCE_REUSE, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
+				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction nonce is too low") {
+					info!("Nonce reuse");
+					return Err((ERR_NONCE_REUSE, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else {
 					info!("RPC error {:?}", e);
 					return Err((ERR_RPC_ERROR, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
