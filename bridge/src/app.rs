@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 use tokio_core::reactor::{Handle};
-use tokio_timer::Timer;
+use tokio_timer::{self, Timer};
 use web3::Transport;
 use error::{Error, ResultExt, ErrorKind};
 use config::Config;
 use contracts::{home, foreign};
 use web3::transports::http::Http;
+use std::time::Duration;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -75,13 +76,20 @@ impl App<Http> {
 		keystore.unlock_account_permanently(config.home.account, config.home.password()?).map_err(|e| ErrorKind::AccountError(e))?;
 		keystore.unlock_account_permanently(config.foreign.account, config.foreign.password()?).map_err(|e| ErrorKind::AccountError(e))?;
 
+		let max_timeout = config.clone().home.request_timeout.max(config.clone().foreign.request_timeout);
+
 		let result = App {
 			config,
 			database_path: database_path.as_ref().to_path_buf(),
 			connections,
 			home_bridge: home::HomeBridge::default(),
 			foreign_bridge: foreign::ForeignBridge::default(),
-			timer: Timer::default(),
+			// it is important to build a timer with a max timeout that can accommodate the longest timeout requested,
+			// otherwise it will result in a bizarrely inadequate behaviour of timing out nearly immediately
+			timer: tokio_timer::wheel().max_timeout(max_timeout)
+				.tick_duration(Duration::from_millis(100))
+				.num_slots((max_timeout.as_secs() as usize * 10).next_power_of_two())
+				.build(),
 			running,
 			keystore,
 		};

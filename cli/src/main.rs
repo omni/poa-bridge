@@ -140,8 +140,8 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	let app = Arc::new(app);
 
 	info!(target: "bridge", "Acquiring home & foreign chain ids");
-	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
-	let foreign_chain_id = event_loop.run(create_chain_id_retrieval(app.connections.foreign.clone(), app.config.foreign.clone())).expect("can't retrieve foreign chain_id");
+	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
+	let foreign_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.foreign.clone(), app.config.foreign.clone())).expect("can't retrieve foreign chain_id");
 
 	info!(target: "bridge", "Home chain ID: {} Foreign chain ID: {}", home_chain_id, foreign_chain_id);
 

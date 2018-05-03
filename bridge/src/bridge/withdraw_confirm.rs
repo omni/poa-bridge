@@ -136,7 +136,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 
 					info!("submitting {} signatures", len);
 					WithdrawConfirmState::ConfirmWithdraws {
-						future: iter_ok(confirmations).buffered(1).collect(),
+						future: iter_ok(confirmations).buffered(self.app.config.txs.withdraw_confirm.concurrency).collect(),
 						block,
 					}
 				},

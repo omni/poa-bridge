@@ -85,8 +85,8 @@ pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<
 	let home_balance = Arc::new(RwLock::new(None));
 	let foreign_balance = Arc::new(RwLock::new(None));
 	Bridge {
-		foreign_balance_check: create_balance_check(app.connections.foreign.clone(), app.config.foreign.clone()),
-		home_balance_check: create_balance_check(app.connections.home.clone(), app.config.home.clone()),
+		foreign_balance_check: create_balance_check(app.clone(), app.connections.foreign.clone(), app.config.foreign.clone()),
+		home_balance_check: create_balance_check(app.clone(), app.connections.home.clone(), app.config.home.clone()),
 		foreign_balance: foreign_balance.clone(),
 		home_balance: home_balance.clone(),
 		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id),

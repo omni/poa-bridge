@@ -232,7 +232,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 
 					info!("relaying {} withdraws", len);
 					WithdrawRelayState::RelayWithdraws {
-						future: iter_ok(relays).buffered(1).collect(),
+						future: iter_ok(relays).buffered(self.app.config.txs.withdraw_relay.concurrency).collect(),
 						block,
 					}
 				},

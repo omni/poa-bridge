@@ -12,8 +12,9 @@ use {toml};
 
 const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
-const DEFAULT_TIMEOUT: u64 = 5;
+const DEFAULT_TIMEOUT: u64 = 3600;
 const DEFAULT_RPC_PORT: u16 = 8545;
+const DEFAULT_CONCURRENCY: usize = 100;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -158,6 +159,7 @@ impl Transactions {
 pub struct TransactionConfig {
 	pub gas: u64,
 	pub gas_price: u64,
+	pub concurrency: usize,
 }
 
 impl TransactionConfig {
@@ -165,6 +167,7 @@ impl TransactionConfig {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
 			gas_price: cfg.gas_price.unwrap_or_default(),
+			concurrency: cfg.concurrency.unwrap_or(DEFAULT_CONCURRENCY),
 		}
 	}
 }
@@ -228,6 +231,7 @@ mod load {
 	pub struct TransactionConfig {
 		pub gas: Option<u64>,
 		pub gas_price: Option<u64>,
+		pub concurrency: Option<usize>,
 	}
 
 	#[derive(Deserialize)]

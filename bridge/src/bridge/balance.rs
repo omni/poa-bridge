@@ -1,10 +1,12 @@
 use futures::{Future, Stream, Poll};
-use tokio_timer::{Timer, Timeout};
+use tokio_timer::Timeout;
 use web3::Transport;
 use web3::types::U256;
 use api::{self, ApiCall};
 use error::Error;
 use config::Node;
+use std::sync::Arc;
+use app::App;
 
 /// State of balance checking.
 enum BalanceCheckState<T: Transport> {
@@ -19,16 +21,16 @@ enum BalanceCheckState<T: Transport> {
 }
 
 pub struct BalanceCheck<T: Transport> {
+	app: Arc<App<T>>,
 	transport: T,
 	state: BalanceCheckState<T>,
-	timer: Timer,
 	node: Node,
 }
 
-pub fn create_balance_check<T: Transport + Clone>(transport: T, node: Node) -> BalanceCheck<T> {
+pub fn create_balance_check<T: Transport + Clone>(app: Arc<App<T>>, transport: T, node: Node) -> BalanceCheck<T> {
 	BalanceCheck {
+		app,
 		state: BalanceCheckState::Wait,
-		timer: Timer::default(),
 		transport,
 		node,
 	}
@@ -43,7 +45,7 @@ impl<T: Transport> Stream for BalanceCheck<T> {
 			let next_state = match self.state {
 				BalanceCheckState::Wait => {
 					BalanceCheckState::BalanceRequest {
-						future: self.timer.timeout(api::balance(&self.transport, self.node.account, None),
+						future: self.app.timer.timeout(api::balance(&self.transport, self.node.account, None),
 						                           self.node.request_timeout),
 					}
 				},

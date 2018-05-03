@@ -109,7 +109,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 
 					info!("relaying {} deposits", len);
 					DepositRelayState::RelayDeposits {
-						future: iter_ok(deposits).buffered(1).collect(),
+						future: iter_ok(deposits).buffered(self.app.config.txs.deposit_relay.concurrency).collect(),
 						block: item.to,
 					}
 				},
