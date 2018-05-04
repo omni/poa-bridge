@@ -1,5 +1,5 @@
 use futures::{Future, Async, Poll, future::{MapErr}};
-use tokio_timer::{Timer, Timeout};
+use tokio_timer::Timeout;
 use web3::{self, Transport};
 use web3::types::{U256, H256, Bytes};
 use ethcore_transaction::Transaction;
@@ -33,7 +33,6 @@ pub struct NonceCheck<T: Transport, S: TransactionSender> {
 	app: Arc<App<T>>,
 	transport: T,
 	state: NonceCheckState<T, S>,
-	timer: Timer,
 	node: Node,
 	transaction: Transaction,
 	chain_id: u64,
@@ -53,7 +52,6 @@ pub fn send_transaction_with_nonce<T: Transport + Clone, S: TransactionSender>(t
 	NonceCheck {
 		app,
 		state: NonceCheckState::Ready,
-		timer: Timer::default(),
 		transport,
 		node,
 		transaction,
@@ -80,7 +78,7 @@ impl<T: Transport, S: TransactionSender> Future for NonceCheck<T, S> {
 				},
 				NonceCheckState::Reacquire => {
 					NonceCheckState::NonceRequest {
-						future: self.timer.timeout(api::eth_get_transaction_count(&self.transport, self.node.account, None),
+						future: self.app.timer.timeout(api::eth_get_transaction_count(&self.transport, self.node.account, None),
 						                           self.node.request_timeout),
 					}
 				},
@@ -94,7 +92,7 @@ impl<T: Transport, S: TransactionSender> Future for NonceCheck<T, S> {
 					self.transaction.nonce = nonce;
 					match prepare_raw_transaction(self.transaction.clone(), &self.app, &self.node, self.chain_id) {
 						Ok(tx) => NonceCheckState::TransactionRequest {
-							future: self.timer.timeout(self.sender.send(tx), self.node.request_timeout)
+							future: self.app.timer.timeout(self.sender.send(tx), self.node.request_timeout)
 						},
 						Err(e) => return Err(e),
 					}

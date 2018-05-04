@@ -115,7 +115,7 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 - `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
 - `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
-- `home/foreign.request_timeout` - specify request timeout (in seconds, default: **5**)
+- `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
 - `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
 
 #### authorities options
@@ -127,10 +127,13 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
 - `transaction.deposit_relay.gas_price` - specify gas price for deposit relay
+- `transaction.deposit_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
 - `transaction.withdraw_confirm.gas_price` - specify gas price for withdraw confirm
+- `transaction.withdraw_confirm.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
 - `transaction.withdraw_relay.gas_price` - specify gas price for withdraw relay
+- `transaction.withdraw_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 
 ### Database file format
 

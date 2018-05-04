@@ -1,9 +1,11 @@
 use futures::{Future, Poll};
-use tokio_timer::{Timer, Timeout};
+use tokio_timer::Timeout;
 use web3::Transport;
 use api::{self, ApiCall};
 use error::Error;
 use config::Node;
+use std::sync::Arc;
+use app::App;
 
 /// State of chain id retrieval
 enum ChainIdRetrievalState<T: Transport> {
@@ -16,16 +18,16 @@ enum ChainIdRetrievalState<T: Transport> {
 }
 
 pub struct ChainIdRetrieval<T: Transport> {
+	app: Arc<App<T>>,
 	transport: T,
 	state: ChainIdRetrievalState<T>,
-	timer: Timer,
 	node: Node,
 }
 
-pub fn create_chain_id_retrieval<T: Transport + Clone>(transport: T, node: Node) -> ChainIdRetrieval<T> {
+pub fn create_chain_id_retrieval<T: Transport + Clone>(app: Arc<App<T>>, transport: T, node: Node) -> ChainIdRetrieval<T> {
 	ChainIdRetrieval {
+		app,
 		state: ChainIdRetrievalState::Wait,
-		timer: Timer::default(),
 		transport,
 		node,
 	}
@@ -40,7 +42,7 @@ impl<T: Transport> Future for ChainIdRetrieval<T> {
 			let next_state = match self.state {
 				ChainIdRetrievalState::Wait => {
 					ChainIdRetrievalState::ChainIdRequest {
-						future: self.timer.timeout(api::net_version(&self.transport),
+						future: self.app.timer.timeout(api::net_version(&self.transport),
 						                           self.node.request_timeout),
 					}
 				},
