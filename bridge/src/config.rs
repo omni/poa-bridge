@@ -258,6 +258,7 @@ mod tests {
 	use super::ContractConfig;
 	#[cfg(feature = "deploy")]
     use super::TransactionConfig;
+	use super::DEFAULT_TIMEOUT;
 
 	#[test]
 	fn load_full_setup_from_str() {
@@ -307,7 +308,7 @@ home_deploy = { gas = 20 }
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(2),
-				request_timeout: Duration::from_secs(5),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
@@ -321,7 +322,7 @@ home_deploy = { gas = 20 }
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
-				request_timeout: Duration::from_secs(5),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
 				rpc_host: "127.0.0.1".into(),
 				rpc_port: 8545,
@@ -391,7 +392,7 @@ required_signatures = 2
 					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
-				request_timeout: Duration::from_secs(5),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
 				rpc_host: "".into(),
 				rpc_port: 8545,
@@ -405,7 +406,7 @@ required_signatures = 2
 					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
 				},
 				poll_interval: Duration::from_secs(1),
-				request_timeout: Duration::from_secs(5),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
 				rpc_host: "".into(),
 				rpc_port: 8545,
@@ -422,7 +423,7 @@ required_signatures = 2
 			},
 			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: 200_000_000,
-			keystore: "/keys".into(),
+			keystore: "/keys/".into(),
 		};
 
 		let config = Config::load_from_str(toml).unwrap();
