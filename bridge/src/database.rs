@@ -13,9 +13,9 @@ pub struct Database {
 	/// Address of foreign contract.
 	pub foreign_contract_address: Address,
 	/// Number of block at which home contract has been deployed.
-	pub home_deploy: u64,
+	pub home_deploy: Option<u64>,
 	/// Number of block at which foreign contract has been deployed.
-	pub foreign_deploy: u64,
+	pub foreign_deploy: Option<u64>,
 	/// Number of last block which has been checked for deposit relays.
 	pub checked_deposit_relay: u64,
 	/// Number of last block which has been checked for withdraw relays.

@@ -122,8 +122,8 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 					let database = Database {
 						home_contract_address: main_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
 						foreign_contract_address: test_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
-						home_deploy: main_receipt.block_number.low_u64(),
-						foreign_deploy: test_receipt.block_number.low_u64(),
+						home_deploy: Some(main_receipt.block_number.low_u64()),
+						foreign_deploy: Some(test_receipt.block_number.low_u64()),
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
 						checked_withdraw_relay: test_receipt.block_number.low_u64(),
 						checked_withdraw_confirm: test_receipt.block_number.low_u64(),
