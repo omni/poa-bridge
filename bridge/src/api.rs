@@ -50,10 +50,46 @@ pub fn eth_get_transaction_count<T: Transport>(transport: T, address: Address, b
 }
 
 
+use serde_json;
+/// trimming the null from the tail because at least some RPC servers require a topic to be present
+/// if there's a null
+/// FIXME: this is not a great fix long term
+fn trim_filter(filter: &Filter) -> serde_json::Value {
+	fn trim_filter1(vals: &mut Vec<serde_json::Value>) {
+		loop {
+			match vals.pop() {
+				None => {
+					return;
+				},
+				Some(serde_json::Value::Null) => (),
+				Some(v) => {
+					vals.push(v);
+					return;
+				}
+			}
+		}
+	}
+	match helpers::serialize(filter) {
+		serde_json::Value::Object(mut map) => {
+			for (k, v) in map.iter_mut() {
+				if k == "topics" {
+					match v {
+						&mut serde_json::Value::Array(ref mut v) => trim_filter1(v),
+						_ => (),
+					}
+				}
+			}
+			serde_json::Value::Object(map)
+		}
+		val => val,
+	}
+}
+
 /// Imperative wrapper for web3 function.
 pub fn logs<T: Transport>(transport: T, filter: &Filter) -> ApiCall<Vec<Log>, T::Out> {
+	let filter = trim_filter(filter);
 	ApiCall {
-		future: CallResult::new(transport.execute("eth_getLogs", vec![helpers::serialize(filter)])),
+		future: CallResult::new(transport.execute("eth_getLogs", vec![filter])),
 		message: "eth_getLogs",
 	}
 }
