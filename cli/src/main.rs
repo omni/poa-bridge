@@ -125,6 +125,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	let mut event_loop = Core::new().unwrap();
 
 	info!(target: "bridge", "Home rpc host {}", config.clone().home.rpc_host);
+	info!(target: "bridge", "Foreign rpc host {}", config.clone().foreign.rpc_host);
 
 	info!(target: "bridge", "Establishing connection:");
 
