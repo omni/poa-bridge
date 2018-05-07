@@ -84,7 +84,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						return Ok(futures::Async::NotReady);
 					}
 
-					let item = try_stream!(self.logs.poll());
+					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling foreign for withdrawals")));
 					let len = item.logs.len();
 					info!("got {} new withdraws to sign", len);
 					let mut messages = item.logs
@@ -141,7 +141,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 					}
 				},
 				WithdrawConfirmState::ConfirmWithdraws { ref mut future, block } => {
-					let _ = try_ready!(future.poll());
+					let _ = try_ready!(future.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "sending signature submissions to foreign")));
 					info!("submitting signatures complete");
 					WithdrawConfirmState::Yield(Some(block))
 				},

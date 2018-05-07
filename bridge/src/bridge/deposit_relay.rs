@@ -82,7 +82,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						warn!("foreign contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
-					let item = try_stream!(self.logs.poll());
+					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")));
 					let len = item.logs.len();
 					info!("got {} new deposits to relay", len);
 					let balance_required = U256::from(self.app.config.txs.deposit_relay.gas) * U256::from(self.app.config.txs.deposit_relay.gas_price) * U256::from(item.logs.len());
@@ -114,7 +114,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 					}
 				},
 				DepositRelayState::RelayDeposits { ref mut future, block } => {
-					let _ = try_ready!(future.poll());
+					let _ = try_ready!(future.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "relaying deposit to foreign")));
 					info!("deposit relay completed");
 					DepositRelayState::Yield(Some(block))
 				},

@@ -159,19 +159,22 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						return Ok(Async::NotReady)
 					}
 
-					let d_relay = try_bridge!(self.deposit_relay.poll()).map(BridgeChecked::DepositRelay);
+					let d_relay = try_bridge!(self.deposit_relay.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "deposit_relay")))
+						.map(BridgeChecked::DepositRelay);
 
 					if d_relay.is_some() {
 						self.check_balances()?;
 					}
 
-					let w_relay = try_bridge!(self.withdraw_relay.poll()).map(BridgeChecked::WithdrawRelay);
+					let w_relay = try_bridge!(self.withdraw_relay.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_relay"))).
+						map(BridgeChecked::WithdrawRelay);
 
 					if w_relay.is_some() {
 						self.check_balances()?;
 					}
 
-					let w_confirm = try_bridge!(self.withdraw_confirm.poll()).map(BridgeChecked::WithdrawConfirm);
+					let w_confirm = try_bridge!(self.withdraw_confirm.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_confirm"))).
+						map(BridgeChecked::WithdrawConfirm);
 
 					if w_confirm.is_some() {
 						self.check_balances()?;
