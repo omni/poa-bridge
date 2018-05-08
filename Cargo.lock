@@ -147,7 +147,7 @@ dependencies = [
 
 [[package]]
 name = "bridge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -177,9 +177,9 @@ dependencies = [
 
 [[package]]
 name = "bridge-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "bridge 0.1.0",
+ "bridge 0.2.0",
  "ctrlc 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "docopt 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1064,7 +1064,7 @@ dependencies = [
 name = "integration-tests"
 version = "0.1.0"
 dependencies = [
- "bridge 0.1.0",
+ "bridge 0.2.0",
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi-contract 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi-derive 5.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2330,7 +2330,7 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
- "bridge 0.1.0",
+ "bridge 0.2.0",
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethereum-types 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",

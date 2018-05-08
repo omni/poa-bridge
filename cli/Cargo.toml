@@ -1,7 +1,6 @@
 [package]
 name = "bridge-cli"
-version = "0.1.0"
-authors = ["debris <marek.kotewicz@gmail.com>"]
+version = "0.2.0"
 
 [[bin]]
 name = "bridge"
