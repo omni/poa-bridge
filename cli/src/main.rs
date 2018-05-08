@@ -177,52 +177,58 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Starting listening to events");
 	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
-	let result = event_loop.run(bridge);
-	match result {
+	let mut result = event_loop.run(bridge);
+	loop {
+		match result {
+			Err(Error(ErrorKind::ContextualizedError(e, context), _)) => {
+				error!("ERROR CONTEXT: {}", context);
+				result = Err(*e);
+				continue;
+			}
 			Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(e), _)), _)) => {
 				if e.kind() == ::std::io::ErrorKind::BrokenPipe {
-					warn!("Connection to a node has been severed");
+					error!("Connection to a node has been severed");
 					return Err((ERR_CONNECTION_LOST, e.into()).into());
 				} else {
-					warn!("I/O error: {:?}", e);
+					error!("I/O error: {:?}", e);
 					return Err((ERR_IO_ERROR, e.into()).into());
 				}
 			},
-		    Err(e @ Error(ErrorKind::ShutdownRequested, _)) => {
+			Err(e @ Error(ErrorKind::ShutdownRequested, _)) => {
 				info!("Shutdown requested, terminating");
 				return Err((ERR_SHUTDOWN_REQUESTED, e.into()).into());
 			},
-  		    Err(e @ Error(ErrorKind::InsufficientFunds, _)) => {
-  			    info!("Insufficient funds, terminating");
-			    return Err((ERR_INSUFFICIENT_FUNDS, e.into()).into());
-		    },
-     	    Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Rpc(e), _)), _)) => {
-
+			Err(e @ Error(ErrorKind::InsufficientFunds, _)) => {
+				error!("Insufficient funds, terminating");
+				return Err((ERR_INSUFFICIENT_FUNDS, e.into()).into());
+			},
+			Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Rpc(e), _)), _)) => {
 				if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Insufficient funds") {
-					info!("Insufficient funds, terminating");
+					error!("Insufficient funds, terminating");
 					return Err((ERR_INSUFFICIENT_FUNDS, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas is too low") {
-					info!("Transaction gas is too low");
+					error!("Transaction gas is too low");
 					return Err((ERR_GAS_TOO_LOW, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas price is too low") {
-					info!("Transaction gas price is too low");
+					error!("Transaction gas price is too low");
 					return Err((ERR_GAS_PRICE_TOO_LOW, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction gas price is too low. There is another") {
-					info!("Nonce reuse");
+					error!("Nonce reuse");
 					return Err((ERR_NONCE_REUSE, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else if e.code == rpc::ErrorCode::ServerError(-32010) && e.message.starts_with("Transaction nonce is too low") {
-					info!("Nonce reuse");
+					error!("Nonce reuse");
 					return Err((ERR_NONCE_REUSE, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				} else {
-					info!("RPC error {:?}", e);
+					error!("RPC error {:?}", e);
 					return Err((ERR_RPC_ERROR, ErrorKind::Web3(web3::error::ErrorKind::Rpc(e).into()).into()).into());
 				}
 			},
 			Err(e) => {
-				warn!("Bridge crashed with {}", e);
+				error!("Bridge crashed with {}", e);
 				return Err((ERR_BRIDGE_CRASH, e).into());
 			},
-			Ok(_) => (),
+			Ok(_) => break,
+		}
 	}
 
 	Ok("Done".into())

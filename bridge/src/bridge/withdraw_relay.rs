@@ -121,7 +121,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 		loop {
 			let next_state = match self.state {
 				WithdrawRelayState::Wait => {
-					let item = try_stream!(self.logs.poll());
+					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling foreign for collected signatures")));
 					info!("got {} new signed withdraws to relay", item.logs.len());
 					let assignments = item.logs
 						.into_iter()
@@ -174,7 +174,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						return Ok(futures::Async::NotReady);
 					}
 
-					let (messages_raw, signatures_raw) = try_ready!(future.poll());
+					let (messages_raw, signatures_raw) = try_ready!(future.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "fetching messages and signatures from foreign")));
 					info!("fetching messages and signatures complete");
 					assert_eq!(messages_raw.len(), signatures_raw.len());
 
@@ -237,7 +237,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					}
 				},
 				WithdrawRelayState::RelayWithdraws { ref mut future, block } => {
-					let _ = try_ready!(future.poll());
+					let _ = try_ready!(future.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "sending withdrawal to home")));
 					info!("relaying withdraws complete");
 					WithdrawRelayState::Yield(Some(block))
 				},

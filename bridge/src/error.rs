@@ -50,6 +50,10 @@ error_chain! {
 		    description("account error")
 		    display("account error {:?}", err),
 		}
+		ContextualizedError(err: Box<Error>, context: &'static str) {
+		    description("contextualized error")
+		    display("{:?} in {}", err, context)
+		}
 	}
 }
 
