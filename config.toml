@@ -1,0 +1,31 @@
+keystore = "/path/to/keystore"
+estimated_gas_cost_of_withdraw = 100000
+
+[home]
+account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+rpc_host = "http://localhost"
+rpc_port = 8545
+required_confirmations = 0
+password = "home_password.txt"
+contract = { bin = "~/whatever" }
+
+[foreign]
+account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+rpc_host = "http://localhost"
+rpc_port = 9545
+required_confirmations = 0
+password = "foreign_password.txt"
+contract = { bin = "~/whatever" }
+
+[authorities]
+accounts = [
+    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
+    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
+    "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+]
+required_signatures = 2
+
+[transactions]
+deposit_relay = { gas = 3000000, gas_price = 1000000000 }
+withdraw_relay = { gas = 3000000, gas_price = 1000000000 }
+withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }

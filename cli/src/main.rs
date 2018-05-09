@@ -12,8 +12,10 @@ extern crate ctrlc;
 extern crate jsonrpc_core as rpc;
 
 use std::{env, fs, io};
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use docopt::Docopt;
 use futures::{Stream, future};
 use tokio_core::reactor::Core;
@@ -50,20 +52,17 @@ impl From<String> for UserFacingError {
 	}
 }
 
-
 impl From<io::Error> for UserFacingError {
 	fn from(err: io::Error) -> Self {
 		UserFacingError(ERR_IO_ERROR, err.into())
 	}
 }
 
-
 impl From<(i32, Error)> for UserFacingError {
 	fn from((code, err): (i32, Error)) -> Self {
 		UserFacingError(code, err)
 	}
 }
-
 
 const USAGE: &'static str = r#"
 POA-Ethereum bridge.
@@ -83,8 +82,6 @@ pub struct Args {
 	arg_config: PathBuf,
 	arg_database: PathBuf,
 }
-
-use std::sync::atomic::{AtomicBool, Ordering};
 
 fn main() {
 	let _ = env_logger::init();
@@ -106,7 +103,6 @@ fn main() {
 		},
 	}
 }
-
 
 fn print_err(err: Error) {
 	let message = err.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n\nCaused by:\n  ");
@@ -233,7 +229,6 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	Ok("Done".into())
 }
-
 
 #[cfg(test)]
 mod tests {
