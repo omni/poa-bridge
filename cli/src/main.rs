@@ -11,8 +11,11 @@ extern crate bridge;
 extern crate ctrlc;
 extern crate jsonrpc_core as rpc;
 
-use std::{env, fs, io};
+use std::env;
+use std::fs::File;
+use std::io;
 use std::path::PathBuf;
+use std::process;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -85,22 +88,18 @@ pub struct Args {
 
 fn main() {
 	let _ = env_logger::init();
-
 	let running = Arc::new(AtomicBool::new(true));
-
 	let r = running.clone();
-	ctrlc::set_handler(move || {
-		r.store(false, Ordering::SeqCst);
-	}).expect("Error setting Ctrl-C handler");
-
-	let result = execute(env::args(), running);
-
-	match result {
+	
+	ctrlc::set_handler(move || { r.store(false, Ordering::SeqCst); })
+		.expect("Error setting Ctrl-C handler");
+	
+	match execute(env::args(), running) {
 		Ok(s) => println!("{}", s),
 		Err(UserFacingError(code, err)) => {
 			print_err(err);
-			::std::process::exit(code);
-		},
+			process::exit(code);
+		}
 	}
 }
 
@@ -162,7 +161,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		Deployed::New(database) => {
 			info!(target: "bridge", "Deployed new bridge contracts");
 			info!(target: "bridge", "\n\n{}\n", database);
-			database.save(fs::File::create(&app.database_path)?)?;
+			database.save(File::create(&app.database_path)?)?;
 			database
 		},
 		Deployed::Existing(database) => {
@@ -182,7 +181,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 				continue;
 			}
 			Err(Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Io(e), _)), _)) => {
-				if e.kind() == ::std::io::ErrorKind::BrokenPipe {
+				if e.kind() == io::ErrorKind::BrokenPipe {
 					error!("Connection to a node has been severed");
 					return Err((ERR_CONNECTION_LOST, e.into()).into());
 				} else {

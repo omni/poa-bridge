@@ -16,25 +16,15 @@ use config::Config;
 use contracts::foreign::ForeignBridge;
 use contracts::home::HomeBridge;
 
-pub struct App<T> where T: Transport {
-	pub config: Config,
-	pub database_path: PathBuf,
-	pub connections: Connections<T>,
-	pub home_bridge: HomeBridge,
-	pub foreign_bridge: ForeignBridge,
-	pub timer: Timer,
-	pub running: Arc<AtomicBool>,
-	pub keystore: AccountProvider,
-}
-
-pub struct Connections<T> where T: Transport {
+/// Holds the HTTP connections to the home and foreign Ethereum nodes.
+pub struct Connections<T: Transport> {
 	pub home: T,
-	pub foreign: T,
+	pub foreign: T
 }
 
 impl Connections<Http>  {
 	pub fn new_http(handle: &Handle, home: &str, foreign: &str) -> Result<Self, Error> {
-	    let home = Http::with_event_loop(home, handle,1)
+	    let home = Http::with_event_loop(home, handle, 1)
 			.map_err(ErrorKind::Web3)
 			.map_err(Error::from)
 			.chain_err(||"Cannot connect to home node rpc")?;
@@ -55,6 +45,17 @@ impl<T: Transport> Connections<T> {
 			foreign: &self.foreign,
 		}
 	}
+}
+
+pub struct App<T> where T: Transport {
+	pub config: Config,
+	pub database_path: PathBuf,
+	pub connections: Connections<T>,
+	pub home_bridge: HomeBridge,
+	pub foreign_bridge: ForeignBridge,
+	pub timer: Timer,
+	pub running: Arc<AtomicBool>,
+	pub keystore: AccountProvider
 }
 
 impl App<Http> {
