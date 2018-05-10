@@ -22,6 +22,7 @@ const DEFAULT_CONCURRENCY: usize = 100;
 const DEFAULT_GAS_PRICE_ORACLE_URL: &str = "https://gasprice.poa.network";
 const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
 const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_GAS_PRICE_GWEI: u32 = 20;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -36,27 +37,25 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, Error> {
-		println!("AAA");
+	pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
 		let mut file = File::open(path).chain_err(|| "Cannot open config")?;
-		let mut buffer = String::new();
-		file.read_to_string(&mut buffer).expect("TODO");
-		Self::load_from_str(&buffer)
+		let mut contents = String::new();
+
+		file.read_to_string(&mut contents)
+			.chain_err(|| "Invalid UTF-8 byte(s) in config TOML file")?;
+		
+		Config::load_from_str(&contents)
 	}
 
-	fn load_from_str(s: &str) -> Result<Config, Error> {
-		println!("BBB");
-		
-		let config: load::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
-		
-		println!("LOADED TOML CONFIG => {:#?}", config);
-		panic!("\n\nBREAKPOINT!!\n\n");
-		
-		Config::from_load_struct(config)
+	fn load_from_str(s: &str) -> Result<Self, Error> {
+		let config_from_toml: load::Config = toml::from_str(s)
+			.chain_err(|| "Cannot parse config")?;
+
+		Config::from_load_struct(config_from_toml)
 	}
 
-	fn from_load_struct(config: load::Config) -> Result<Config, Error> {
-		let result = Config {
+	fn from_load_struct(config: load::Config) -> Result<Self, Error> {
+		let config = Config {
 			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
@@ -68,8 +67,7 @@ impl Config {
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
 			keystore: config.keystore,
 		};
-
-		Ok(result)
+		Ok(config)
 	}
 }
 
@@ -87,7 +85,8 @@ pub struct Node {
 	pub info: NodeInfo,
 	pub gas_price_oracle_url: String,
 	pub gas_price_speed: GasPriceSpeed,
-	pub gas_price_timeout: Duration
+	pub gas_price_timeout: Duration,
+	pub default_gas_price: u32
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +125,8 @@ impl Node {
 			Duration::from_secs(n_secs)
 		};
 
+		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_GWEI);
+
 		let result = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
@@ -146,7 +147,8 @@ impl Node {
 			info: Default::default(),
 			gas_price_oracle_url,
 			gas_price_speed,
-			gas_price_timeout
+			gas_price_timeout,
+			default_gas_price
 		};
 
 		Ok(result)
@@ -269,7 +271,8 @@ mod load {
 		pub password: PathBuf,
 		pub gas_price_oracle_url: Option<String>,
 		pub gas_price_speed: Option<String>,
-		pub gas_price_timeout: Option<u64>
+		pub gas_price_timeout: Option<u64>,
+		pub default_gas_price: Option<u32>
 	}
 
 	#[derive(Deserialize, Debug)]

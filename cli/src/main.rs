@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use docopt::Docopt;
-use futures::{Stream, future};
+use futures::{future, Stream};
 use tokio_core::reactor::Core;
 
 use bridge::app::App;

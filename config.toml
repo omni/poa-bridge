@@ -7,7 +7,8 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
-contract = { bin = "~/whatever" }
+contract = { bin = "compiled_contracts/HomeBridge.bin" }
+default_gas_price = 10
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
@@ -15,7 +16,8 @@ rpc_host = "http://localhost"
 rpc_port = 9545
 required_confirmations = 0
 password = "foreign_password.txt"
-contract = { bin = "~/whatever" }
+contract = { bin = "compiled_contracts/ForeignBridge.bin" }
+default_gas_price = 30
 
 [authorities]
 accounts = [
