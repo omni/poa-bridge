@@ -155,8 +155,10 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						home_balance.is_none() || foreign_balance.is_none()
 					};
 					if balance_is_absent {
-						self.check_balances()?;
-						return Ok(Async::NotReady)
+						match self.check_balances()? {
+							Async::NotReady => return Ok(Async::NotReady),
+							_ => (),
+						}
 					}
 
 					let d_relay = try_bridge!(self.deposit_relay.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "deposit_relay")))
