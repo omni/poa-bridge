@@ -91,9 +91,11 @@ impl GasPriceNode {
     }
 
     // Returns the cached price if the cache is set and has not yet
-    // expired, returns the price from the oracle URL if the cache is
-    // empty or expired, returns the defualt price if an HTTP networking or
-    // JSON deserializtion errors (malformed JSON response) occurs.
+    // expired, returns the price receive from the oracle URL if the cache
+    // is empty or has expired and no HTTP errors occured when querying the
+    // oracle URL, returns the default price if an HTTP networking
+    // error/timout or a JSON deserializtion error (malformed JSON
+    // response) occured.
     //
     // This method returns a U256 as that is the required type for the
     // `gas_price` field in `ethcore_transaction::Transaction`.
