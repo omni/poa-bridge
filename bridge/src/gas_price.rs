@@ -5,8 +5,12 @@ use web3::types::U256;
 
 use config::{Config, GasPriceSpeed, Node};
 
+// The duration for which a gas price is valid once it has been received
+// from a gas price oracle URL.
 const GAS_PRICE_CACHE_DURATION: Duration = Duration::from_secs(5 * 60);
 
+/// Represents the JSON body of an HTTP response received from a POA gas
+/// price oracle.
 #[derive(Debug, Deserialize)]
 struct GasPriceJson {
     block_number: u64,
@@ -29,6 +33,8 @@ impl GasPriceJson {
     }
 }
 
+/// Contains the data necessary to query either the home or foreign gas
+/// price oracle.
 #[derive(Debug)]
 struct GasPriceNode {
     client: reqwest::Client,
@@ -57,10 +63,14 @@ impl<'a> From<&'a Node> for GasPriceNode {
 }
 
 impl GasPriceNode {
+    // Checks whether or not that the time that the data stored in
+    // `self.cached_price` has exceeded the cache time.
     fn cache_has_expired(&self) -> bool {
         self.cache_timer.elapsed() > GAS_PRICE_CACHE_DURATION
     }
 
+    // Returns None if the cached price has expired or was never set,
+    // otherwise returns the cached price.
     fn get_cached_price(&self) -> Option<f64> {
         match self.cache_has_expired() {
             true => None,
@@ -68,6 +78,8 @@ impl GasPriceNode {
         }
     }
 
+    // Makes an HTTP request to the oracle URL, get's the value for the
+    // JSON key corresponding to `self.speed`.
     fn request_price(&self) -> Result<f64, ()> {
         if let Ok(mut resp) = reqwest::get(&self.url) {
             let des: reqwest::Result<GasPriceJson> = resp.json();
@@ -78,6 +90,13 @@ impl GasPriceNode {
         Err(())
     }
 
+    // Returns the cached price if the cache is set and has not yet
+    // expired, returns the price from the oracle URL if the cache is
+    // empty or expired, returns the defualt price if an HTTP networking or
+    // JSON deserializtion errors (malformed JSON response) occurs.
+    //
+    // This method returns a U256 as that is the required type for the
+    // `gas_price` field in `ethcore_transaction::Transaction`.
     fn get_price(&mut self) -> U256 {
         let price = if let Some(cached_price) = self.get_cached_price() {
             cached_price
@@ -93,6 +112,8 @@ impl GasPriceNode {
     }
 }
 
+/// Holds the data required to get the gas price for the home and foreign
+/// nodes.
 #[derive(Debug)]
 pub struct GasPriceClient {
     home: GasPriceNode,
