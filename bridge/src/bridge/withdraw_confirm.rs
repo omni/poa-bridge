@@ -73,8 +73,9 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 		// borrow checker...
 		let app = &self.app;
 		let gas = self.app.config.txs.withdraw_confirm.gas.into();
-		let gas_price = self.app.config.txs.withdraw_confirm.gas_price.into();
+		let gas_price = self.app.gas_prices.lock().unwrap().get_foreign_price();
 		let contract = self.foreign_contract.clone();
+	
 		loop {
 			let next_state = match self.state {
 				WithdrawConfirmState::Wait => {
@@ -110,7 +111,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 
 					let block = item.to;
 
-					let balance_required = U256::from(self.app.config.txs.withdraw_confirm.gas) * U256::from(self.app.config.txs.withdraw_confirm.gas_price) * U256::from(signatures.len());
+					let balance_required = gas * gas_price * U256::from(signatures.len());
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
@@ -124,7 +125,8 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						})
 						.map(|payload| {
 							let tx = Transaction {
-								gas, gas_price,
+								gas,
+								gas_price,
 								value: U256::zero(),
 								data: payload.0,
 								nonce: U256::zero(),

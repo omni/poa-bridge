@@ -8,6 +8,7 @@ mod withdraw_relay;
 
 use std::fs;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::path::PathBuf;
 use futures::{Stream, Poll, Async};
 use web3::Transport;
@@ -111,22 +112,24 @@ pub struct Bridge<T: Transport, F> {
 	running: Arc<AtomicBool>,
 }
 
-use std::sync::atomic::{AtomicBool, Ordering};
-
 impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
 	fn check_balances(&mut self) -> Poll<Option<()>, Error> {
 		let mut home_balance = self.home_balance.write().unwrap();
 		let mut foreign_balance = self.foreign_balance.write().unwrap();
+		
 		let home_balance_known = home_balance.is_some();
 		let foreign_balance_known = foreign_balance.is_some();
+		
 		*home_balance = try_bridge!(self.home_balance_check.poll()).or(*home_balance);
 		*foreign_balance = try_bridge!(self.foreign_balance_check.poll()).or(*foreign_balance);
+		
 		if !home_balance_known && home_balance.is_some() {
-				info!("Retrieved home contract balance");
+			info!("Retrieved home contract balance");
 		}
 		if !foreign_balance_known && foreign_balance.is_some() {
-				info!("Retrieved foreign contract balance");
+			info!("Retrieved foreign contract balance");
 		}
+		
 		if home_balance.is_none() || foreign_balance.is_none() {
 			Ok(Async::NotReady)
 		} else {
@@ -154,6 +157,7 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						let mut foreign_balance = self.foreign_balance.read().unwrap();
 						home_balance.is_none() || foreign_balance.is_none()
 					};
+
 					if balance_is_absent {
 						match self.check_balances()? {
 							Async::NotReady => return Ok(Async::NotReady),
@@ -194,10 +198,12 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						BridgeStatus::NextItem(Some(()))
 					}
 				},
-				BridgeStatus::NextItem(ref mut v) => match v.take() {
-					None => BridgeStatus::Wait,
-					some => return Ok(some.into()),
-				},
+				BridgeStatus::NextItem(ref mut v) => {
+					match v.take() {
+						None => BridgeStatus::Wait,
+						some => return Ok(some.into()),
+					}
+				}
 			};
 
 			self.state = next_state;
