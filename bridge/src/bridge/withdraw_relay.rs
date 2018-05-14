@@ -220,7 +220,6 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 								signatures.iter().map(|x| x.r),
 								signatures.iter().map(|x| x.s),
 								message.clone().0).into();
-							let gas_price = MessageToMainnet::from_bytes(message.0.as_slice()).mainnet_gas_price;
 							let tx = Transaction {
 									gas,
 									gas_price,
