@@ -113,6 +113,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 		let app = &self.app;
 		let gas = self.app.config.txs.withdraw_relay.gas.into();
+		let gas_price = self.app.gas_prices.lock().unwrap().get_home_price();
 		let contract = self.home_contract.clone();
 		let home = &self.app.config.home;
 		let t = &self.app.connections.home;
@@ -178,7 +179,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					info!("fetching messages and signatures complete");
 					assert_eq!(messages_raw.len(), signatures_raw.len());
 
-					let balance_required = U256::from(self.app.config.txs.withdraw_relay.gas) * U256::from(self.app.config.txs.withdraw_relay.gas_price) * U256::from(messages_raw.len());
+					let balance_required = gas * gas_price * U256::from(messages_raw.len());
 					if balance_required > *home_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
@@ -221,7 +222,8 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 								message.clone().0).into();
 							let gas_price = MessageToMainnet::from_bytes(message.0.as_slice()).mainnet_gas_price;
 							let tx = Transaction {
-									gas, gas_price,
+									gas,
+									gas_price,
 									value: U256::zero(),
 									data: payload.0,
 									nonce: U256::zero(),

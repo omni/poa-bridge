@@ -82,13 +82,24 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						warn!("foreign contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
-					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")));
+					
+					let item = try_stream!(
+						self.logs.poll().map_err(|e|
+							ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")
+						)
+					);
+		
 					let len = item.logs.len();
 					info!("got {} new deposits to relay", len);
-					let balance_required = U256::from(self.app.config.txs.deposit_relay.gas) * U256::from(self.app.config.txs.deposit_relay.gas_price) * U256::from(item.logs.len());
+					
+					let gas = U256::from(self.app.config.txs.deposit_relay.gas);
+					let gas_price = self.app.gas_prices.lock().unwrap().get_foreign_price();
+					let balance_required = gas * gas_price * U256::from(item.logs.len());
+
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
+					
 					let deposits = item.logs
 						.into_iter()
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
@@ -96,8 +107,8 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						.into_iter()
 						.map(|payload| {
 							let tx = Transaction {
-								gas: self.app.config.txs.deposit_relay.gas.into(),
-								gas_price: self.app.config.txs.deposit_relay.gas_price.into(),
+								gas,
+								gas_price,
 								value: U256::zero(),
 								data: payload.0,
 								nonce: U256::zero(),

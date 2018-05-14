@@ -1,23 +1,21 @@
-keystore = "/path/to/keystore"
+keystore = "/Users/Jay/tmp"
 estimated_gas_cost_of_withdraw = 100000
 
 [home]
-account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-rpc_host = "http://localhost"
-rpc_port = 8545
+account = "0x65529455c1de29136be2f57f1924d619b0145247"
+rpc_host = "https://sokol.poa.network"
+rpc_port = 443
 required_confirmations = 0
-password = "home_password.txt"
+password = "/Users/Jay/tmp/password.txt"
 contract = { bin = "compiled_contracts/HomeBridge.bin" }
-default_gas_price = 20
 
 [foreign]
-account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-rpc_host = "http://localhost"
-rpc_port = 9545
+account = "0x65529455c1de29136be2f57f1924d619b0145247"
+rpc_host = "https://kovan.infura.io/mew"
+rpc_port = 443
 required_confirmations = 0
-password = "foreign_password.txt"
+password = "/Users/Jay/tmp/password.txt"
 contract = { bin = "compiled_contracts/ForeignBridge.bin" }
-default_gas_price = 20
 
 [authorities]
 accounts = [

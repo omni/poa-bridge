@@ -23,6 +23,7 @@ use docopt::Docopt;
 use futures::{future, Stream};
 use tokio_core::reactor::Core;
 
+use bridge::api::eth_get_transaction_count;
 use bridge::app::App;
 use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, Deployed};
 use bridge::config::Config;
@@ -104,14 +105,21 @@ fn main() {
 }
 
 fn print_err(err: Error) {
-	let message = err.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n\nCaused by:\n  ");
+	let message = err.iter()
+		.map(|e| e.to_string())
+		.collect::<Vec<_>>()
+		.join("\n\nCaused by:\n  ");
+
 	println!("{}", message);
 }
 
-fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFacingError> where I: IntoIterator<Item=S>, S: AsRef<str> {
+fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFacingError>
+	where I: IntoIterator<Item=S>, S: AsRef<str>
+{
 	info!(target: "bridge", "Parsing cli arguments");
 	let args: Args = Docopt::new(USAGE)
-		.and_then(|d| d.argv(command).deserialize()).map_err(|e| e.to_string())?;
+		.and_then(|d| d.argv(command).deserialize())
+		.map_err(|e| e.to_string())?;
 
 	info!(target: "bridge", "Loading config");
 	let config = Config::load(args.arg_config)?;
@@ -119,35 +127,64 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	info!(target: "bridge", "Starting event loop");
 	let mut event_loop = Core::new().unwrap();
 
-	info!(target: "bridge", "Home rpc host {}", config.clone().home.rpc_host);
-	info!(target: "bridge", "Foreign rpc host {}", config.clone().foreign.rpc_host);
+	info!(target: "bridge", "Home RPC host: {}", config.clone().home.rpc_host);
+	info!(target: "bridge", "Foreign RPC host: {}", config.clone().foreign.rpc_host);
+	info!(target: "bridge", "Establishing home and foreign connections...");
 
-	info!(target: "bridge", "Establishing connection:");
+	let create_app_result = App::new_http(
+		config.clone(),
+		&args.arg_database,
+		&event_loop.handle(),
+		running.clone()
+	);
 
-	info!(target:"bridge", "  using RPC connection");
-	let app = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
-		Ok(app) => app,
+	let app = match create_app_result {
+		Ok(app) => Arc::new(app),
 		Err(e) => {
 			warn!("Can't establish an RPC connection: {:?}", e);
 			return Err((ERR_CANNOT_CONNECT, e).into());
-		},
+		}
 	};
 
-	let app = Arc::new(app);
-
-	info!(target: "bridge", "Acquiring home & foreign chain ids");
-	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
-	let foreign_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.foreign.clone(), app.config.foreign.clone())).expect("can't retrieve foreign chain_id");
+	info!(target: "bridge", "Acquiring home and foreign chain ids");
+	
+	let home_chain_id = event_loop.run(
+		create_chain_id_retrieval(
+			app.clone(),
+			app.connections.home.clone(),
+			app.config.home.clone()
+		)
+	).expect("can't retrieve home chain_id");
+	
+	let foreign_chain_id = event_loop.run(
+		create_chain_id_retrieval(
+			app.clone(),
+			app.connections.foreign.clone(),
+			app.config.foreign.clone()
+		)
+	).expect("can't retrieve foreign chain_id");
 
 	info!(target: "bridge", "Home chain ID: {} Foreign chain ID: {}", home_chain_id, foreign_chain_id);
 
 	{
-		use bridge::api;
 		let mut home_nonce = app.config.home.info.nonce.write().unwrap();
 		let mut foreign_nonce = app.config.foreign.info.nonce.write().unwrap();
+	
+		*home_nonce = event_loop.run(
+			eth_get_transaction_count(
+				app.connections.home.clone(),
+				app.config.home.account,
+				None
+			)
+		).expect("can't initialize home nonce");
 
-		*home_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.home.clone(), app.config.home.account, None)).expect("can't initialize home nonce");
-		*foreign_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.foreign.clone(), app.config.foreign.account, None)).expect("can't initialize foreign nonce");
+		*foreign_nonce = event_loop.run(
+			eth_get_transaction_count(
+				app.connections.foreign.clone(),
+				app.config.foreign.account,
+				None
+			)
+		).expect("can't initialize foreign nonce");
 	}
 
 	#[cfg(feature = "deploy")]
@@ -155,10 +192,12 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	#[cfg(not(feature = "deploy"))]
 	info!(target: "bridge", "Reading the database");
 
-	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id))?;
-
+	let deployed = event_loop.run(
+		create_deploy(app.clone(), home_chain_id, foreign_chain_id)
+	)?;
+	
 	let database = match deployed {
-		Deployed::New(database) => {
+		Deployed::New(database) => {			
 			info!(target: "bridge", "Deployed new bridge contracts");
 			info!(target: "bridge", "\n\n{}\n", database);
 			database.save(File::create(&app.database_path)?)?;
@@ -167,12 +206,17 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		Deployed::Existing(database) => {
 			info!(target: "bridge", "Loaded database");
 			database
-		},
+		}
 	};
 
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
+
+	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id)
+		.and_then(|_| future::ok(true))
+		.collect();
+	
 	let mut result = event_loop.run(bridge);
+
 	loop {
 		match result {
 			Err(Error(ErrorKind::ContextualizedError(e, context), _)) => {

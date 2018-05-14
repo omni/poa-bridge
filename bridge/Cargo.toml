@@ -16,6 +16,7 @@ jsonrpc-core = "8.0"
 keccak-hash = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 log = "0.3"
 pretty_assertions = "0.2.1"
+reqwest = "0.8.5"
 rlp = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 rustc-hex = "1.0"
 serde = "1.0"

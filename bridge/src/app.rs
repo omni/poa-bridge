@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
@@ -15,6 +15,7 @@ use error::{Error, ErrorKind, ResultExt};
 use config::Config;
 use contracts::foreign::ForeignBridge;
 use contracts::home::HomeBridge;
+use gas_price::GasPriceClient;
 
 /// Holds the HTTP connections to the home and foreign Ethereum nodes.
 pub struct Connections<T: Transport> {
@@ -55,7 +56,8 @@ pub struct App<T> where T: Transport {
 	pub foreign_bridge: ForeignBridge,
 	pub timer: Timer,
 	pub running: Arc<AtomicBool>,
-	pub keystore: AccountProvider
+	pub keystore: AccountProvider,
+	pub gas_prices: Arc<Mutex<GasPriceClient>>
 }
 
 impl App<Http> {
@@ -101,10 +103,12 @@ impl App<Http> {
 		keystore.unlock_account_permanently(config.foreign.account, config.foreign.password()?)
 			.map_err(|e| ErrorKind::AccountError(e))?;
 
+		let gas_prices = Arc::new(Mutex::new(GasPriceClient::from(&config)));
+
 		let app = App {
 			config, database_path, connections,
 			home_bridge, foreign_bridge,
-			timer, running, keystore
+			timer, running, keystore, gas_prices
 		};
 
 		Ok(app)
