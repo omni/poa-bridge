@@ -33,7 +33,7 @@ const ERR_GAS_PRICE_TOO_LOW: i32 = 6;
 const ERR_NONCE_REUSE: i32 = 7;
 const ERR_CANNOT_CONNECT: i32 = 10;
 const ERR_CONNECTION_LOST: i32 = 11;
-const ERR_BRIDGE_CRASH: i32 = 11;
+const ERR_BRIDGE_CRASH: i32 = 12;
 const ERR_RPC_ERROR: i32 = 20;
 
 pub struct UserFacingError(i32, Error);
