@@ -18,6 +18,7 @@ use docopt::Docopt;
 use futures::{Stream, future};
 use tokio_core::reactor::Core;
 
+use bridge::api;
 use bridge::app::App;
 use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, Deployed};
 use bridge::config::Config;
@@ -175,8 +176,15 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		},
 	};
 
+	let foreign_validator_contract: web3::types::Address = event_loop.run(app.timer.timeout(api::call_at(app.connections.foreign.clone(), database.foreign_contract_address,
+																	app.foreign_bridge.functions().validator_contract().input().into(),
+																	Some(database.checked_withdraw_relay.into())), app.config.foreign.request_timeout)).unwrap().0.as_slice().into();
+
+	info!(target: "bridge", "Foreign validator contract: {}", foreign_validator_contract);
+
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
+	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id, foreign_validator_contract)
+		.and_then(|_| future::ok(true)).collect();
 	let mut result = event_loop.run(bridge);
 	loop {
 		match result {

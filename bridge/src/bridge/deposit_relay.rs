@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
 	let filter = home.events().deposit().create_filter();
-	web3_filter(filter, address)
+	web3_filter(filter, ::std::iter::once(address))
 }
 
 fn deposit_relay_payload(home: &home::HomeBridge, foreign: &foreign::ForeignBridge, log: Log) -> Result<Bytes> {

@@ -142,6 +142,23 @@ pub fn call<T: Transport>(transport: T, address: Address, payload: Bytes) -> Api
 	}
 }
 
+pub fn call_at<T: Transport>(transport: T, address: Address, payload: Bytes, block: Option<BlockNumber>) -> ApiCall<Bytes, T::Out> {
+	let future = api::Eth::new(transport).call(CallRequest {
+		from: None,
+		to: address,
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(payload),
+	}, block);
+
+	ApiCall {
+		future,
+		message: "eth_call",
+	}
+}
+
+
 /// Returns a eth_sign-compatible hash of data to sign.
 /// The data is prepended with special message to prevent
 /// chosen-plaintext attacks.

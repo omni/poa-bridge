@@ -96,7 +96,6 @@ accounts = [
     "0x006e27b6a72e1f34c626762f3c4761547aff1421",
     "0x006e27b6a72e1f34c626762f3c4761547aff1421"
 ]
-required_signatures = 2
 
 [transactions]
 deposit_relay = { gas = 3000000, gas_price = 1000000000 }
@@ -121,7 +120,6 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 #### authorities options
 
 - `authorities.account` - all authorities (**required**)
-- `authorities.required_signatures` - number of authorities signatures required to consider action final (**required**)
 
 #### transaction options
 

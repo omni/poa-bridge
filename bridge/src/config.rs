@@ -47,6 +47,7 @@ impl Config {
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
 				accounts: config.authorities.accounts,
+				#[cfg(feature = "deploy")]
 				required_signatures: config.authorities.required_signatures,
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
@@ -181,6 +182,7 @@ pub struct ContractConfig {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Authorities {
 	pub accounts: Vec<Address>,
+	#[cfg(feature = "deploy")]
 	pub required_signatures: u32,
 }
 
@@ -241,9 +243,9 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
-	#[serde(deny_unknown_fields)]
 	pub struct Authorities {
 		pub accounts: Vec<Address>,
+		#[cfg(feature = "deploy")]
 		pub required_signatures: u32,
 	}
 }
@@ -292,7 +294,6 @@ accounts = [
 	"0x0000000000000000000000000000000000000002",
 	"0x0000000000000000000000000000000000000003"
 ]
-required_signatures = 2
 
 [transactions]
 home_deploy = { gas = 20 }
@@ -335,7 +336,6 @@ home_deploy = { gas = 20 }
 					"0000000000000000000000000000000000000002".into(),
 					"0000000000000000000000000000000000000003".into(),
 				],
-				required_signatures: 2,
 			},
 			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: 100_000,
@@ -381,7 +381,6 @@ accounts = [
 	"0x0000000000000000000000000000000000000002",
 	"0x0000000000000000000000000000000000000003"
 ]
-required_signatures = 2
 "#;
 		let expected = Config {
 			txs: Transactions::default(),
@@ -419,7 +418,6 @@ required_signatures = 2
 					"0000000000000000000000000000000000000002".into(),
 					"0000000000000000000000000000000000000003".into(),
 				],
-				required_signatures: 2,
 			},
 			#[cfg(feature = "deploy")]
 			estimated_gas_cost_of_withdraw: 200_000_000,

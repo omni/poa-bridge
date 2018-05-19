@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock};
 use std::path::PathBuf;
 use futures::{Stream, Poll, Async};
 use web3::Transport;
-use web3::types::U256;
+use web3::types::{U256, Address};
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind, Result};
@@ -27,7 +27,7 @@ pub use self::withdraw_confirm::{WithdrawConfirm, create_withdraw_confirm};
 #[derive(Clone, Copy)]
 pub enum BridgeChecked {
 	DepositRelay(u64),
-	WithdrawRelay(u64),
+	WithdrawRelay((u64, u32)),
 	WithdrawConfirm(u64),
 }
 
@@ -47,8 +47,9 @@ impl BridgeBackend for FileBackend {
 				BridgeChecked::DepositRelay(n) => {
 					self.database.checked_deposit_relay = n;
 				},
-				BridgeChecked::WithdrawRelay(n) => {
+				BridgeChecked::WithdrawRelay((n, sigs)) => {
 					self.database.checked_withdraw_relay = n;
+					self.database.withdraw_relay_required_signatures = Some(sigs);
 				},
 				BridgeChecked::WithdrawConfirm(n) => {
 					self.database.checked_withdraw_confirm = n;
@@ -71,17 +72,18 @@ enum BridgeStatus {
 }
 
 /// Creates new bridge.
-pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, FileBackend> {
+pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_chain_id: u64, foreign_chain_id: u64, foreign_validator_contract: Address) -> Bridge<T, FileBackend> {
 	let backend = FileBackend {
 		path: app.database_path.clone(),
 		database: init.clone(),
 	};
 
-	create_bridge_backed_by(app, init, backend, home_chain_id, foreign_chain_id)
+	create_bridge_backed_by(app, init, backend, home_chain_id, foreign_chain_id, foreign_validator_contract)
 }
 
 /// Creates new bridge writing to custom backend.
-pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, F> {
+pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F, home_chain_id: u64, foreign_chain_id: u64,
+																	   foreign_validator_contract: Address) -> Bridge<T, F> {
 	let home_balance = Arc::new(RwLock::new(None));
 	let foreign_balance = Arc::new(RwLock::new(None));
 	Bridge {
@@ -90,7 +92,7 @@ pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<
 		foreign_balance: foreign_balance.clone(),
 		home_balance: home_balance.clone(),
 		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
-		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id),
+		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id, foreign_validator_contract),
 		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
 		state: BridgeStatus::Wait,
 		backend,
@@ -168,12 +170,14 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						self.check_balances()?;
 					}
 
+
 					let w_relay = try_bridge!(self.withdraw_relay.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_relay"))).
 						map(BridgeChecked::WithdrawRelay);
 
 					if w_relay.is_some() {
 						self.check_balances()?;
 					}
+
 
 					let w_confirm = try_bridge!(self.withdraw_confirm.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_confirm"))).
 						map(BridgeChecked::WithdrawConfirm);
@@ -226,10 +230,11 @@ mod tests {
 		assert_eq!(1, backend.database.checked_deposit_relay);
 		assert_eq!(0, backend.database.checked_withdraw_confirm);
 		assert_eq!(0, backend.database.checked_withdraw_relay);
-		backend.save(vec![BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawConfirm(3), BridgeChecked::WithdrawRelay(2)]).unwrap();
+		backend.save(vec![BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawConfirm(3), BridgeChecked::WithdrawRelay((2, 1))]).unwrap();
 		assert_eq!(2, backend.database.checked_deposit_relay);
 		assert_eq!(3, backend.database.checked_withdraw_confirm);
 		assert_eq!(2, backend.database.checked_withdraw_relay);
+		assert_eq!(1, backend.database.withdraw_relay_required_signatures.unwrap());
 
 		let loaded = Database::load(path).unwrap();
 		assert_eq!(backend.database, loaded);

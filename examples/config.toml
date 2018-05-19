@@ -17,7 +17,6 @@ rpc_port = 443
 accounts = [
 	"0x006e27b6a72e1f34c626762f3c4761547aff1421",
 ]
-required_signatures = 1
 
 [transactions]
 home_deploy = { gas = 1000000, gas_price = 1000000000 }

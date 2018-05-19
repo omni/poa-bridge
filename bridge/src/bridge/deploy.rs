@@ -127,6 +127,7 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
 						checked_withdraw_relay: test_receipt.block_number.low_u64(),
 						checked_withdraw_confirm: test_receipt.block_number.low_u64(),
+						withdraw_relay_required_signatures: Some(self.app.config.authorities.required_signatures),
 					};
 					return Ok(Deployed::New(database).into())
 				},

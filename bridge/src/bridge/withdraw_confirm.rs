@@ -16,7 +16,7 @@ use super::nonce::{NonceCheck, SendRawTransaction};
 
 fn withdraws_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
 	let filter = foreign.events().withdraw().create_filter();
-	web3_filter(filter, address)
+	web3_filter(filter, ::std::iter::once(address))
 }
 
 fn withdraw_submit_signature_payload(foreign: &foreign::ForeignBridge, withdraw_message: Vec<u8>, signature: H520) -> Bytes {

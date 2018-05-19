@@ -253,6 +253,10 @@ contract HomeBridge is BridgeDeploymentAddressStorage,
     /// Must be lesser than number of authorities.
     uint256 public requiredSignatures;
 
+    event RequiredSignaturesChanged (uint256 requiredSignatures);
+
+    address public validatorContract;
+
     /// The gas cost of calling `HomeBridge.withdraw`.
     ///
     /// Is subtracted from `value` on withdraw.
@@ -284,6 +288,8 @@ contract HomeBridge is BridgeDeploymentAddressStorage,
         requiredSignatures = requiredSignaturesParam;
         authorities = authoritiesParam;
         estimatedGasCostOfWithdraw = estimatedGasCostOfWithdrawParam;
+        validatorContract = this;
+        RequiredSignaturesChanged(requiredSignatures);
     }
 
     /// Should be used to deposit money.
@@ -357,8 +363,11 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
     ///
     /// Must be less than number of authorities.
     uint256 public requiredSignatures;
+    event RequiredSignaturesChanged (uint256 requiredSignatures);
 
     uint256 public estimatedGasCostOfWithdraw;
+
+    address public validatorContract;
 
     // Original parity-bridge assumes that anyone could forward final
     // withdraw confirmation to the HomeBridge contract. That's why
@@ -416,11 +425,15 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
         require(_requiredSignatures <= _authorities.length);
         requiredSignatures = _requiredSignatures;
         
+        validatorContract = this;
+
         for (uint i = 0; i < _authorities.length; i++) {
             authorities[_authorities[i]] = true;
         }
         
         estimatedGasCostOfWithdraw = _estimatedGasCostOfWithdraw;
+
+        RequiredSignaturesChanged(requiredSignatures);
     }
 
     /// require that sender is an authority

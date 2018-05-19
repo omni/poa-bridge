@@ -20,6 +20,8 @@ pub struct Database {
 	pub checked_deposit_relay: u64,
 	/// Number of last block which has been checked for withdraw relays.
 	pub checked_withdraw_relay: u64,
+	/// Number of required signatures on the foreign side
+	pub withdraw_relay_required_signatures: Option<u32>,
 	/// Number of last block which has been checked for withdraw confirms.
 	pub checked_withdraw_confirm: u64,
 }
@@ -70,6 +72,7 @@ home_deploy = 100
 foreign_deploy = 101
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
+withdraw_relay_required_signatures = 2
 checked_withdraw_confirm = 121
 "#;
 
@@ -81,6 +84,7 @@ checked_withdraw_confirm = 121
 			checked_deposit_relay: 120,
 			checked_withdraw_relay: 121,
 			checked_withdraw_confirm: 121,
+			withdraw_relay_required_signatures: Some(2),
 		};
 
 		let database = toml.parse().unwrap();
