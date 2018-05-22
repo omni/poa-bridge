@@ -1,20 +1,28 @@
-use std::path::{Path, PathBuf};
-use std::fs;
+use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+
 #[cfg(feature = "deploy")]
 use rustc_hex::FromHex;
-use web3::types::Address;
+use toml;
+use web3::types::{Address, U256};
 #[cfg(feature = "deploy")]
 use web3::types::Bytes;
-use error::{ResultExt, Error};
-use {toml};
+
+use error::{Error, ResultExt};
 
 const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 3600;
 const DEFAULT_RPC_PORT: u16 = 8545;
 const DEFAULT_CONCURRENCY: usize = 100;
+const DEFAULT_GAS_PRICE_ORACLE_URL: &str = "https://gasprice.poa.network";
+const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
+const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 10;
+const DEFAULT_GAS_PRICE_WEI: u64 = 15_000_000_000;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -29,20 +37,25 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, Error> {
-		let mut file = fs::File::open(path).chain_err(|| "Cannot open config")?;
-		let mut buffer = String::new();
-		file.read_to_string(&mut buffer).expect("TODO");
-		Self::load_from_str(&buffer)
+	pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+		let mut file = File::open(path).chain_err(|| "Cannot open config")?;
+		let mut contents = String::new();
+
+		file.read_to_string(&mut contents)
+			.chain_err(|| "Invalid UTF-8 byte(s) in config TOML file")?;
+		
+		Config::load_from_str(&contents)
 	}
 
-	fn load_from_str(s: &str) -> Result<Config, Error> {
-		let config: load::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
-		Config::from_load_struct(config)
+	fn load_from_str(s: &str) -> Result<Self, Error> {
+		let config_from_toml: load::Config = toml::from_str(s)
+			.chain_err(|| "Cannot parse config")?;
+
+		Config::from_load_struct(config_from_toml)
 	}
 
-	fn from_load_struct(config: load::Config) -> Result<Config, Error> {
-		let result = Config {
+	fn from_load_struct(config: load::Config) -> Result<Self, Error> {
+		let config = Config {
 			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
@@ -54,8 +67,7 @@ impl Config {
 			estimated_gas_cost_of_withdraw: config.estimated_gas_cost_of_withdraw,
 			keystore: config.keystore,
 		};
-
-		Ok(result)
+		Ok(config)
 	}
 }
 
@@ -71,10 +83,11 @@ pub struct Node {
 	pub rpc_port: u16,
 	pub password: PathBuf,
 	pub info: NodeInfo,
+	pub gas_price_oracle_url: String,
+	pub gas_price_speed: GasPriceSpeed,
+	pub gas_price_timeout: Duration,
+	pub default_gas_price: u64
 }
-
-use std::sync::{Arc, RwLock};
-use web3::types::U256;
 
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
@@ -97,13 +110,30 @@ impl PartialEq for NodeInfo {
 
 impl Node {
 	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
+		let gas_price_oracle_url = match node.gas_price_oracle_url {
+			Some(ref s) => s.clone(),
+			None => DEFAULT_GAS_PRICE_ORACLE_URL.into()
+		};
+		
+		let gas_price_speed = match node.gas_price_speed {
+			Some(ref s) => GasPriceSpeed::from_str(s).unwrap(),
+			None => DEFAULT_GAS_PRICE_SPEED
+		};
+
+		let gas_price_timeout = {
+			let n_secs = node.gas_price_timeout.unwrap_or(DEFAULT_GAS_PRICE_TIMEOUT_SECS);
+			Duration::from_secs(n_secs)
+		};
+
+		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
+
 		let result = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
 			contract: ContractConfig {
 				bin: {
 					let mut read = String::new();
-					let mut file = fs::File::open(node.contract.bin)?;
+					let mut file = File::open(node.contract.bin)?;
 					file.read_to_string(&mut read)?;
 					Bytes(read.from_hex()?)
 				}
@@ -115,15 +145,17 @@ impl Node {
 			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
 			password: node.password,
 			info: Default::default(),
+			gas_price_oracle_url,
+			gas_price_speed,
+			gas_price_timeout,
+			default_gas_price
 		};
 
 		Ok(result)
 	}
 
 	pub fn password(&self) -> Result<String, Error> {
-		use std::io::Read;
-		use std::fs;
-		let mut f = fs::File::open(&self.password)?;
+		let mut f = File::open(&self.password)?;
 		let mut s = String::new();
 		f.read_to_string(&mut s)?;
 		Ok(s.split("\n").next().unwrap().to_string())
@@ -184,14 +216,49 @@ pub struct Authorities {
 	pub required_signatures: u32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GasPriceSpeed {
+    Instant,
+    Fast,
+    Standard,
+    Slow
+}
+
+impl FromStr for GasPriceSpeed {
+	type Err = ();
+	
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let speed = match s {
+			"instant" => GasPriceSpeed::Instant,
+			"fast" => GasPriceSpeed::Fast,
+			"standard" => GasPriceSpeed::Standard,
+			"slow" => GasPriceSpeed::Slow,
+			_ => return Err(())
+		};
+		Ok(speed)
+	}
+}
+
+impl GasPriceSpeed {
+	pub fn as_str(&self) -> &str {
+		match *self {
+			GasPriceSpeed::Instant => "instant",
+			GasPriceSpeed::Fast => "fast",
+			GasPriceSpeed::Standard => "standard",
+			GasPriceSpeed::Slow => "slow",
+		}
+	}
+}
+
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
 mod load {
 	use std::path::PathBuf;
+	
 	use web3::types::Address;
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	pub struct Config {
 		pub home: Node,
 		pub foreign: Node,
@@ -202,7 +269,7 @@ mod load {
 		pub keystore: PathBuf,
 	}
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	pub struct Node {
 		pub account: Address,
 		#[cfg(feature = "deploy")]
@@ -213,9 +280,13 @@ mod load {
 		pub rpc_host: Option<String>,
 		pub rpc_port: Option<u16>,
 		pub password: PathBuf,
+		pub gas_price_oracle_url: Option<String>,
+		pub gas_price_speed: Option<String>,
+		pub gas_price_timeout: Option<u64>,
+		pub default_gas_price: Option<u64>
 	}
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	pub struct Transactions {
 		#[cfg(feature = "deploy")]
 		pub home_deploy: Option<TransactionConfig>,
@@ -226,7 +297,7 @@ mod load {
 		pub withdraw_relay: Option<TransactionConfig>,
 	}
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	#[serde(deny_unknown_fields)]
 	pub struct TransactionConfig {
 		pub gas: Option<u64>,
@@ -234,13 +305,13 @@ mod load {
 		pub concurrency: Option<usize>,
 	}
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	#[serde(deny_unknown_fields)]
 	pub struct ContractConfig {
 		pub bin: PathBuf,
 	}
 
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	#[serde(deny_unknown_fields)]
 	pub struct Authorities {
 		pub accounts: Vec<Address>,

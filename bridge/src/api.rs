@@ -1,16 +1,27 @@
 use std::time::Duration;
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use futures::{Future, Stream, Poll};
-use tokio_timer::{Timer, Interval, Timeout};
-use web3::{self, api, Transport};
-use web3::api::Namespace;
-use web3::types::{Log, Filter, H256, U256, FilterBuilder, Bytes, Address, CallRequest, BlockNumber};
-use web3::helpers::{self, CallResult};
-use error::{Error, ErrorKind};
 
-/// Imperative alias for web3 function.
+use futures::{Future, Poll, Stream};
+use serde::de::DeserializeOwned;
+use serde_json as json;
+use tokio_timer::{Interval, Timeout, Timer};
+use web3::{self, Transport};
+use web3::api::{Eth, Namespace};
 pub use web3::confirm::send_raw_transaction_with_confirmation;
+use web3::helpers::{self, CallResult};
+use web3::types::{
+	Address,
+	BlockNumber,
+	Bytes,
+	CallRequest,
+	Filter,
+	FilterBuilder,
+	H256,
+	Log,
+	U256
+};
+
+pub use bridge::nonce::send_transaction_with_nonce;
+use error::{Error, ErrorKind};
 
 /// Wrapper type for `CallResult`
 pub struct ApiCall<T, F> {
@@ -18,7 +29,10 @@ pub struct ApiCall<T, F> {
 	message: &'static str,
 }
 
-impl<T: DeserializeOwned, F: Future<Item = Value, Error = web3::Error>>Future for ApiCall<T, F> {
+impl<T, F> Future for ApiCall<T, F> where
+	T: DeserializeOwned,
+	F: Future<Item=json::Value, Error=web3::Error>
+{
 	type Item = T;
 	type Error = Error;
 
@@ -32,7 +46,7 @@ impl<T: DeserializeOwned, F: Future<Item = Value, Error = web3::Error>>Future fo
 pub fn net_version<T: Transport>(transport: T) -> ApiCall<String, T::Out> {
 	ApiCall {
 		future: CallResult::new(transport.execute("net_version", vec![])),
-		message: "net_version",
+		message: "net_version"
 	}
 }
 
@@ -49,19 +63,17 @@ pub fn eth_get_transaction_count<T: Transport>(transport: T, address: Address, b
 	}
 }
 
-
-use serde_json;
 /// trimming the null from the tail because at least some RPC servers require a topic to be present
 /// if there's a null
 /// FIXME: this is not a great fix long term
-fn trim_filter(filter: &Filter) -> serde_json::Value {
-	fn trim_filter1(vals: &mut Vec<serde_json::Value>) {
+fn trim_filter(filter: &Filter) -> json::Value {
+	fn trim_filter1(vals: &mut Vec<json::Value>) {
 		loop {
 			match vals.pop() {
 				None => {
 					return;
 				},
-				Some(serde_json::Value::Null) => (),
+				Some(json::Value::Null) => (),
 				Some(v) => {
 					vals.push(v);
 					return;
@@ -70,16 +82,16 @@ fn trim_filter(filter: &Filter) -> serde_json::Value {
 		}
 	}
 	match helpers::serialize(filter) {
-		serde_json::Value::Object(mut map) => {
+		json::Value::Object(mut map) => {
 			for (k, v) in map.iter_mut() {
 				if k == "topics" {
 					match v {
-						&mut serde_json::Value::Array(ref mut v) => trim_filter1(v),
+						&mut json::Value::Array(ref mut v) => trim_filter1(v),
 						_ => (),
 					}
 				}
 			}
-			serde_json::Value::Object(map)
+			json::Value::Object(map)
 		}
 		val => val,
 	}
@@ -97,7 +109,7 @@ pub fn logs<T: Transport>(transport: T, filter: &Filter) -> ApiCall<Vec<Log>, T:
 /// Imperative wrapper for web3 function.
 pub fn block_number<T: Transport>(transport: T) -> ApiCall<U256, T::Out> {
 	ApiCall {
-		future: api::Eth::new(transport).block_number(),
+		future: Eth::new(transport).block_number(),
 		message: "eth_blockNumber",
 	}
 }
@@ -118,16 +130,14 @@ pub fn balance<T: Transport>(transport: T, address: Address, block: Option<Block
 /// Imperative wrapper for web3 function.
 pub fn send_raw_transaction<T: Transport>(transport: T, tx: Bytes) -> ApiCall<H256, T::Out> {
 	ApiCall {
-		future: api::Eth::new(transport).send_raw_transaction(tx),
+		future: Eth::new(transport).send_raw_transaction(tx),
 		message: "eth_sendRawTransaction",
 	}
 }
 
-pub use bridge::nonce::send_transaction_with_nonce;
-
 /// Imperative wrapper for web3 function.
 pub fn call<T: Transport>(transport: T, address: Address, payload: Bytes) -> ApiCall<Bytes, T::Out> {
-	let future = api::Eth::new(transport).call(CallRequest {
+	let future = Eth::new(transport).call(CallRequest {
 		from: None,
 		to: address,
 		gas: None,

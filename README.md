@@ -82,6 +82,7 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
+default_gas_price = 10
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
@@ -89,6 +90,7 @@ rpc_host = "http://localhost"
 rpc_port = 9545
 required_confirmations = 0
 password = "foreign_password.txt"
+default_gas_price = 20
 
 [authorities]
 accounts = [
@@ -117,6 +119,10 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
 - `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
 - `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
+- `home/foreign.gas_price_oracle_url` - the URL used to query the current gas price for the home and foreign nodes.
+- `home/foreign.gas_price_timeout` - the number of seconds to wait for an HTTP response from the gas price oracle before using the default gas price.
+- `home/foreign.gas_price_speed_type` - use the gas price from the oracle URL corresponding to this transaction speed.
+- `home/foreign.default_gas_price` - the default gas price in GWEI used in transactions with the home or foreign node. The default gas price is used when the gas price oracle cannot be URL cannot be reached.
 
 #### authorities options
 

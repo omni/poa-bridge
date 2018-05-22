@@ -8,6 +8,7 @@ mod withdraw_relay;
 
 use std::fs;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::path::PathBuf;
 use futures::{Stream, Poll, Async};
 use web3::Transport;
@@ -15,6 +16,8 @@ use web3::types::U256;
 use app::App;
 use database::Database;
 use error::{Error, ErrorKind, Result};
+use gas_price::GasPriceStream;
+use tokio_core::reactor::Handle;
 
 pub use self::deploy::{Deploy, Deployed, create_deploy};
 pub use self::balance::{BalanceCheck, create_balance_check};
@@ -71,30 +74,41 @@ enum BridgeStatus {
 }
 
 /// Creates new bridge.
-pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, FileBackend> {
+pub fn create_bridge<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, handle: &Handle, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, FileBackend> {
 	let backend = FileBackend {
 		path: app.database_path.clone(),
 		database: init.clone(),
 	};
 
-	create_bridge_backed_by(app, init, backend, home_chain_id, foreign_chain_id)
+	create_bridge_backed_by(app, init, backend, handle, home_chain_id, foreign_chain_id)
 }
 
 /// Creates new bridge writing to custom backend.
-pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, F> {
+pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<App<T>>, init: &Database, backend: F, handle: &Handle, home_chain_id: u64, foreign_chain_id: u64) -> Bridge<T, F> {
 	let home_balance = Arc::new(RwLock::new(None));
 	let foreign_balance = Arc::new(RwLock::new(None));
+
+	let home_gas_stream = GasPriceStream::new(&app.config.home, handle, &app.timer);
+	let foreign_gas_stream = GasPriceStream::new(&app.config.foreign, handle, &app.timer);
+
+	let home_gas_price = Arc::new(RwLock::new(app.config.home.default_gas_price));
+	let foreign_gas_price = Arc::new(RwLock::new(app.config.foreign.default_gas_price));
+
 	Bridge {
 		foreign_balance_check: create_balance_check(app.clone(), app.connections.foreign.clone(), app.config.foreign.clone()),
 		home_balance_check: create_balance_check(app.clone(), app.connections.home.clone(), app.config.home.clone()),
 		foreign_balance: foreign_balance.clone(),
 		home_balance: home_balance.clone(),
-		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
-		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id),
-		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id),
+		deposit_relay: create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_gas_price.clone()),
+		withdraw_relay: create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id, home_gas_price.clone()),
+		withdraw_confirm: create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_gas_price.clone()),
 		state: BridgeStatus::Wait,
 		backend,
 		running: app.running.clone(),
+		home_gas_stream,
+		foreign_gas_stream,
+		home_gas_price,
+		foreign_gas_price,
 	}
 }
 
@@ -109,24 +123,30 @@ pub struct Bridge<T: Transport, F> {
 	state: BridgeStatus,
 	backend: F,
 	running: Arc<AtomicBool>,
+	home_gas_stream: GasPriceStream,
+	foreign_gas_stream: GasPriceStream,
+	home_gas_price: Arc<RwLock<u64>>,
+	foreign_gas_price: Arc<RwLock<u64>>,
 }
-
-use std::sync::atomic::{AtomicBool, Ordering};
 
 impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
 	fn check_balances(&mut self) -> Poll<Option<()>, Error> {
 		let mut home_balance = self.home_balance.write().unwrap();
 		let mut foreign_balance = self.foreign_balance.write().unwrap();
+		
 		let home_balance_known = home_balance.is_some();
 		let foreign_balance_known = foreign_balance.is_some();
+		
 		*home_balance = try_bridge!(self.home_balance_check.poll()).or(*home_balance);
 		*foreign_balance = try_bridge!(self.foreign_balance_check.poll()).or(*foreign_balance);
+		
 		if !home_balance_known && home_balance.is_some() {
-				info!("Retrieved home contract balance");
+			info!("Retrieved home contract balance");
 		}
 		if !foreign_balance_known && foreign_balance.is_some() {
-				info!("Retrieved foreign contract balance");
+			info!("Retrieved foreign contract balance");
 		}
+		
 		if home_balance.is_none() || foreign_balance.is_none() {
 			Ok(Async::NotReady)
 		} else {
@@ -134,6 +154,15 @@ impl<T: Transport, F: BridgeBackend> Bridge<T, F> {
 		}
 	}
 
+	fn get_gas_prices(&mut self) -> Poll<Option<()>, Error> {
+		let mut home_price = self.home_gas_price.write().unwrap();
+		let mut foreign_price = self.foreign_gas_price.write().unwrap();
+				
+		*home_price = try_bridge!(self.home_gas_stream.poll()).unwrap_or(*home_price);
+		*foreign_price = try_bridge!(self.foreign_gas_stream.poll()).unwrap_or(*foreign_price);
+
+		Ok(Async::Ready(None))
+	}
 }
 
 impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
@@ -154,12 +183,15 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						let mut foreign_balance = self.foreign_balance.read().unwrap();
 						home_balance.is_none() || foreign_balance.is_none()
 					};
+
 					if balance_is_absent {
 						match self.check_balances()? {
 							Async::NotReady => return Ok(Async::NotReady),
 							_ => (),
 						}
 					}
+
+					let _ = self.get_gas_prices();
 
 					let d_relay = try_bridge!(self.deposit_relay.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "deposit_relay")))
 						.map(BridgeChecked::DepositRelay);
@@ -194,10 +226,12 @@ impl<T: Transport, F: BridgeBackend> Stream for Bridge<T, F> {
 						BridgeStatus::NextItem(Some(()))
 					}
 				},
-				BridgeStatus::NextItem(ref mut v) => match v.take() {
-					None => BridgeStatus::Wait,
-					some => return Ok(some.into()),
-				},
+				BridgeStatus::NextItem(ref mut v) => {
+					match v.take() {
+						None => BridgeStatus::Wait,
+						some => return Ok(some.into()),
+					}
+				}
 			};
 
 			self.state = next_state;

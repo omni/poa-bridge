@@ -42,7 +42,7 @@ enum DepositRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64) -> DepositRelay<T> {
+pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64, foreign_gas_price: Arc<RwLock<u64>>) -> DepositRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_deposit_relay,
 		request_timeout: app.config.home.request_timeout,
@@ -57,6 +57,7 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 		app,
 		foreign_balance,
 		foreign_chain_id,
+		foreign_gas_price,
 	}
 }
 
@@ -67,6 +68,7 @@ pub struct DepositRelay<T: Transport> {
 	foreign_contract: Address,
 	foreign_balance: Arc<RwLock<Option<U256>>>,
 	foreign_chain_id: u64,
+	foreign_gas_price: Arc<RwLock<u64>>,
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
@@ -82,13 +84,24 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						warn!("foreign contract balance is unknown");
 						return Ok(futures::Async::NotReady);
 					}
-					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")));
+					
+					let item = try_stream!(
+						self.logs.poll().map_err(|e|
+							ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")
+						)
+					);
+		
 					let len = item.logs.len();
 					info!("got {} new deposits to relay", len);
-					let balance_required = U256::from(self.app.config.txs.deposit_relay.gas) * U256::from(self.app.config.txs.deposit_relay.gas_price) * U256::from(item.logs.len());
+					
+					let gas = U256::from(self.app.config.txs.deposit_relay.gas);
+					let gas_price = self.foreign_gas_price.read().unwrap();
+					let balance_required: U256 = gas * U256::from(*gas_price) * U256::from(item.logs.len());
+
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
+					
 					let deposits = item.logs
 						.into_iter()
 						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
@@ -96,8 +109,8 @@ impl<T: Transport> Stream for DepositRelay<T> {
 						.into_iter()
 						.map(|payload| {
 							let tx = Transaction {
-								gas: self.app.config.txs.deposit_relay.gas.into(),
-								gas_price: self.app.config.txs.deposit_relay.gas_price.into(),
+								gas,
+								gas_price: (*gas_price).into(),
 								value: U256::zero(),
 								data: payload.0,
 								nonce: U256::zero(),

@@ -22,6 +22,8 @@ extern crate log;
 extern crate ethereum_types;
 #[macro_use]
 extern crate pretty_assertions;
+extern crate hyper;
+extern crate hyper_tls;
 
 extern crate ethcore;
 extern crate ethcore_transaction;
@@ -40,12 +42,13 @@ mod macros;
 
 pub mod api;
 pub mod app;
-pub mod config;
 pub mod bridge;
+pub mod config;
 pub mod contracts;
 pub mod database;
 pub mod error;
-pub mod util;
+mod gas_price;
 pub mod message_to_mainnet;
 pub mod signature;
 pub mod transaction;
+pub mod util;
