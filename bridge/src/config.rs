@@ -22,7 +22,7 @@ const DEFAULT_CONCURRENCY: usize = 100;
 const DEFAULT_GAS_PRICE_ORACLE_URL: &str = "https://gasprice.poa.network";
 const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
 const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 10;
-const DEFAULT_GAS_PRICE_GWEI: f64 = 15.0;
+const DEFAULT_GAS_PRICE_WEI: u64 = 15_000_000_000;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -86,7 +86,7 @@ pub struct Node {
 	pub gas_price_oracle_url: String,
 	pub gas_price_speed: GasPriceSpeed,
 	pub gas_price_timeout: Duration,
-	pub default_gas_price: f64
+	pub default_gas_price: u64
 }
 
 #[derive(Debug, Clone)]
@@ -125,7 +125,7 @@ impl Node {
 			Duration::from_secs(n_secs)
 		};
 
-		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_GWEI);
+		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
 
 		let result = Node {
 			account: node.account,
@@ -239,6 +239,17 @@ impl FromStr for GasPriceSpeed {
 	}
 }
 
+impl GasPriceSpeed {
+	pub fn as_str(&self) -> &str {
+		match *self {
+			GasPriceSpeed::Instant => "instant",
+			GasPriceSpeed::Fast => "fast",
+			GasPriceSpeed::Standard => "standard",
+			GasPriceSpeed::Slow => "slow",
+		}
+	}
+}
+
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
@@ -272,7 +283,7 @@ mod load {
 		pub gas_price_oracle_url: Option<String>,
 		pub gas_price_speed: Option<String>,
 		pub gas_price_timeout: Option<u64>,
-		pub default_gas_price: Option<f64>
+		pub default_gas_price: Option<u64>
 	}
 
 	#[derive(Deserialize, Debug)]

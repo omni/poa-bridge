@@ -126,6 +126,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Starting event loop");
 	let mut event_loop = Core::new().unwrap();
+	let handle = event_loop.handle();
 
 	info!(target: "bridge", "Home RPC host: {}", config.clone().home.rpc_host);
 	info!(target: "bridge", "Foreign RPC host: {}", config.clone().foreign.rpc_host);
@@ -134,7 +135,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	let create_app_result = App::new_http(
 		config.clone(),
 		&args.arg_database,
-		&event_loop.handle(),
+		&handle,
 		running.clone()
 	);
 
@@ -211,7 +212,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Starting listening to events");
 
-	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id)
+	let bridge = create_bridge(app.clone(), &database, &handle, home_chain_id, foreign_chain_id)
 		.and_then(|_| future::ok(true))
 		.collect();
 	

@@ -37,7 +37,7 @@ enum WithdrawConfirmState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64) -> WithdrawConfirm<T> {
+pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64, foreign_gas_price: Arc<RwLock<u64>>) -> WithdrawConfirm<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_confirm,
 		request_timeout: app.config.foreign.request_timeout,
@@ -53,6 +53,7 @@ pub fn create_withdraw_confirm<T: Transport + Clone>(app: Arc<App<T>>, init: &Da
 		app,
 		foreign_balance,
 		foreign_chain_id,
+		foreign_gas_price,
 	}
 }
 
@@ -63,6 +64,7 @@ pub struct WithdrawConfirm<T: Transport> {
 	foreign_contract: Address,
 	foreign_balance: Arc<RwLock<Option<U256>>>,
 	foreign_chain_id: u64,
+	foreign_gas_price: Arc<RwLock<u64>>,	
 }
 
 impl<T: Transport> Stream for WithdrawConfirm<T> {
@@ -73,7 +75,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 		// borrow checker...
 		let app = &self.app;
 		let gas = self.app.config.txs.withdraw_confirm.gas.into();
-		let gas_price = self.app.gas_prices.lock().unwrap().get_foreign_price();
+		let gas_price = self.foreign_gas_price.read().unwrap();
 		let contract = self.foreign_contract.clone();
 	
 		loop {
@@ -111,7 +113,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 
 					let block = item.to;
 
-					let balance_required = gas * gas_price * U256::from(signatures.len());
+					let balance_required: U256 = gas * U256::from(*gas_price) * U256::from(signatures.len());
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
@@ -126,7 +128,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						.map(|payload| {
 							let tx = Transaction {
 								gas,
-								gas_price,
+								gas_price: (*gas_price).into(),
 								value: U256::zero(),
 								data: payload.0,
 								nonce: U256::zero(),

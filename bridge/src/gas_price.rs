@@ -1,142 +1,99 @@
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use reqwest;
-use web3::types::U256;
+use futures::{Async, future::AndThen, Future, Poll, stream::Concat2, Stream};
+use hyper::{Body, Chunk, client::{FutureResponse, HttpConnector}, Client, Response, Uri};
+use hyper_tls::HttpsConnector;
+use serde_json as json;
+use tokio_core::reactor::Handle;
+use tokio_timer::{Interval, Timer, Timeout};
 
-use config::{Config, GasPriceSpeed, Node};
+use config::{GasPriceSpeed, Node};
+use error::Error;
 
-// The duration for which a gas price is valid once it has been received
-// from a gas price oracle URL.
-const GAS_PRICE_CACHE_DURATION: Duration = Duration::from_secs(5 * 60);
+const CACHE_TIMEOUT_DURATION: Duration = Duration::from_secs(5 * 60);
+const REQUEST_TIMEOUT_DURATION: Duration = Duration::from_secs(30);
 
-/// Represents the JSON body of an HTTP response received from a POA gas
-/// price oracle.
-#[derive(Debug, Deserialize)]
-struct GasPriceJson {
-    block_number: u64,
-    block_time: f64,
-    health: bool,
-    instant: f64,
-    fast: f64,
-    standard: f64,
-    slow: f64
+enum State {
+    Initial,
+    WaitingForResponse(Timeout<Box<Future<Item = Chunk, Error = Error>>>),
+    Yield(Option<u64>),
 }
 
-impl GasPriceJson {
-    fn get_price_for_speed(&self, speed: &GasPriceSpeed) -> f64 {
-        match *speed {
-            GasPriceSpeed::Instant => self.instant,
-            GasPriceSpeed::Fast => self.fast,
-            GasPriceSpeed::Standard => self.standard,
-            GasPriceSpeed::Slow => self.slow
-        }
-    }
-}
-
-/// Contains the data necessary to query either the home or foreign gas
-/// price oracle.
-#[derive(Debug)]
-struct GasPriceNode {
-    client: reqwest::Client,
-    url: String,
+pub struct GasPriceStream {
+    state: State,
+    client: Client<HttpsConnector<HttpConnector>>,
+    uri: Uri,
     speed: GasPriceSpeed,
-    default_price: f64,
-    cache_timer: Instant,
-    cached_price: Option<f64>
+    default_price: u64,
+    request_timer: Timer,
+    interval: Interval,
 }
 
-impl<'a> From<&'a Node> for GasPriceNode {
-    fn from(node: &'a Node) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(node.gas_price_timeout)
-            .build().unwrap();
-    
-        GasPriceNode {
+impl GasPriceStream {
+    pub fn new(node: &Node, handle: &Handle, timer: &Timer) -> Self {
+        let client = Client::configure()
+            .connector(HttpsConnector::new(4, handle).unwrap())
+            .build(handle);
+
+        GasPriceStream {
+            state: State::Initial,
             client,
-            url: node.gas_price_oracle_url.clone(),
+            uri: node.gas_price_oracle_url.parse().unwrap(),
             speed: node.gas_price_speed,
             default_price: node.default_gas_price,
-            cache_timer: Instant::now(),
-            cached_price: None
+            request_timer: timer.clone(),
+            interval: timer.interval_at(Instant::now(), CACHE_TIMEOUT_DURATION),
         }
     }
 }
 
-impl GasPriceNode {
-    // Checks whether or not that the time that the data stored in
-    // `self.cached_price` has exceeded the cache time.
-    fn cache_has_expired(&self) -> bool {
-        self.cache_timer.elapsed() > GAS_PRICE_CACHE_DURATION
-    }
+impl Stream for GasPriceStream {
+    type Item = u64;
+    type Error = Error;
 
-    // Returns None if the cached price has expired or was never set,
-    // otherwise returns the cached price.
-    fn get_cached_price(&self) -> Option<f64> {
-        match self.cache_has_expired() {
-            true => None,
-            false => self.cached_price
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        loop {
+            let next_state = match self.state {
+                State::Initial => {
+                    let _ = try_stream!(self.interval.poll());
+
+                    let request: Box<Future<Item = Chunk, Error = Error>> =
+                        Box::new(
+                            self.client.get(self.uri.clone())
+                                .and_then(|resp| resp.body().concat2())
+                                .map_err(|e| e.into())
+                        );
+
+                    let request_future = self.request_timer
+                        .timeout(request, REQUEST_TIMEOUT_DURATION);
+
+                    State::WaitingForResponse(request_future)
+                },
+                State::WaitingForResponse(ref mut request_future) => {
+                    match request_future.poll() {
+                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Ok(Async::Ready(chunk)) => {
+                            let json_obj: HashMap<String, json::Value> = json::from_slice(&chunk)?;
+
+                            let gas_price = match json_obj.get(self.speed.as_str()) {
+                                Some(json::Value::Number(price)) => (price.as_f64().unwrap() * 1_000_000_000.0).trunc() as u64,
+                                _ => unreachable!(),
+                            };
+
+                            State::Yield(Some(gas_price))
+                        },
+                        Err(e) => panic!(e), 
+                    }
+                },
+                State::Yield(ref mut opt) => match opt.take() {
+					None => State::Initial,
+					price => return Ok(Async::Ready(price)),
+				}
+            };
+
+            self.state = next_state;
         }
-    }
-
-    // Makes an HTTP request to the oracle URL, get's the value for the
-    // JSON key corresponding to `self.speed`.
-    fn request_price(&self) -> Result<f64, ()> {
-        if let Ok(mut resp) = reqwest::get(&self.url) {
-            let des: reqwest::Result<GasPriceJson> = resp.json();
-            if let Ok(obj) = des {
-                return Ok(obj.get_price_for_speed(&self.speed));
-            }
-        }
-        Err(())
-    }
-
-    // Returns the cached price if the cache is set and has not yet
-    // expired, returns the price receive from the oracle URL if the cache
-    // is empty or has expired and no HTTP errors occured when querying the
-    // oracle URL, returns the default price if an HTTP networking
-    // error/timout or a JSON deserializtion error (malformed JSON
-    // response) occured.
-    //
-    // This method returns a U256 as that is the required type for the
-    // `gas_price` field in `ethcore_transaction::Transaction`.
-    fn get_price(&mut self) -> U256 {
-        let price = if let Some(cached_price) = self.get_cached_price() {
-            cached_price
-        } else if let Ok(price) = self.request_price() {
-            self.cached_price = Some(price);
-            self.cache_timer = Instant::now();
-            price
-        } else {
-            self.default_price
-        };
-
-        (price.ceil() as u64).into()
-    }
-}
-
-/// Holds the data required to get the gas price for the home and foreign
-/// nodes.
-#[derive(Debug)]
-pub struct GasPriceClient {
-    home: GasPriceNode,
-    foreign: GasPriceNode
-}
-
-impl<'a> From<&'a Config> for GasPriceClient {
-    fn from(config: &'a Config) -> Self {
-        let home = GasPriceNode::from(&config.home);
-        let foreign = GasPriceNode::from(&config.foreign);
-        GasPriceClient { home, foreign }
-    }
-}
-
-impl GasPriceClient {
-    pub fn get_home_price(&mut self) -> U256 {
-        self.home.get_price()
-    }
-
-    pub fn get_foreign_price(&mut self) -> U256 {
-        self.foreign.get_price()
     }
 }
 

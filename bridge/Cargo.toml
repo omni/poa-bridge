@@ -11,6 +11,8 @@ ethcore = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 ethcore-transaction = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }
 ethereum-types = "0.3"
 futures = "0.1"
+hyper = "0.11.27"
+hyper-tls = "0.1.3"
 itertools = "0.7"
 jsonrpc-core = "8.0"
 keccak-hash = { git = "http://github.com/paritytech/parity", rev = "991f0ca" }

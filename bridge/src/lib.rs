@@ -22,7 +22,8 @@ extern crate log;
 extern crate ethereum_types;
 #[macro_use]
 extern crate pretty_assertions;
-extern crate reqwest;
+extern crate hyper;
+extern crate hyper_tls;
 
 extern crate ethcore;
 extern crate ethcore_transaction;
