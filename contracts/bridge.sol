@@ -253,10 +253,6 @@ contract HomeBridge is BridgeDeploymentAddressStorage,
     /// Must be lesser than number of authorities.
     uint256 public requiredSignatures;
 
-    event RequiredSignaturesChanged (uint256 requiredSignatures);
-
-    address public validatorContract;
-
     /// The gas cost of calling `HomeBridge.withdraw`.
     ///
     /// Is subtracted from `value` on withdraw.
@@ -288,8 +284,6 @@ contract HomeBridge is BridgeDeploymentAddressStorage,
         requiredSignatures = requiredSignaturesParam;
         authorities = authoritiesParam;
         estimatedGasCostOfWithdraw = estimatedGasCostOfWithdrawParam;
-        validatorContract = this;
-        RequiredSignaturesChanged(requiredSignatures);
     }
 
     /// Should be used to deposit money.
@@ -363,11 +357,8 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
     ///
     /// Must be less than number of authorities.
     uint256 public requiredSignatures;
-    event RequiredSignaturesChanged (uint256 requiredSignatures);
 
     uint256 public estimatedGasCostOfWithdraw;
-
-    address public validatorContract;
 
     // Original parity-bridge assumes that anyone could forward final
     // withdraw confirmation to the HomeBridge contract. That's why
@@ -409,7 +400,7 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
     event Withdraw(address recipient, uint256 value, uint256 homeGasPrice);
 
     /// Collected signatures which should be relayed to home chain.
-    event CollectedSignatures(address authorityResponsibleForRelay, bytes32 messageHash);
+    event CollectedSignatures(address authorityResponsibleForRelay, bytes32 messageHash, uint256 NumberOfCollectedSignatures);
 
     /// Event created when new token address is set up.
     event TokenAddress(address token);
@@ -424,16 +415,12 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
         require(_requiredSignatures != 0);
         require(_requiredSignatures <= _authorities.length);
         requiredSignatures = _requiredSignatures;
-        
-        validatorContract = this;
 
         for (uint i = 0; i < _authorities.length; i++) {
             authorities[_authorities[i]] = true;
         }
-        
-        estimatedGasCostOfWithdraw = _estimatedGasCostOfWithdraw;
 
-        RequiredSignaturesChanged(requiredSignatures);
+        estimatedGasCostOfWithdraw = _estimatedGasCostOfWithdraw;
     }
 
     /// require that sender is an authority
@@ -564,7 +551,7 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
 
         // TODO: this may cause troubles if requiredSignatures len is changed
         if (signed == requiredSignatures) {
-            CollectedSignatures(msg.sender, hash);
+            CollectedSignatures(msg.sender, hash, signed);
         }
     }
 
