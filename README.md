@@ -54,6 +54,11 @@ bridge --config config.toml --database db.toml
 - `--config` - location of the configuration file. configuration file must exist
 - `--database` - location of the database file.
 
+Bridge forces TLS for RPC connections by default. However, in some limited scenarios (like local testing),
+this might be undesirable. In this case, you can use `--allow-insecure-rpc-endpoints` option to allow non-TLS
+endpoints to be used. Ensure, however, that this option is not going to be used in production.
+
+
 #### Exit Status Codes
 
 | Code | Meaning              |

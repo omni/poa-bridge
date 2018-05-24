@@ -73,13 +73,14 @@ POA-Ethereum bridge.
     Copyright 2018 POA Networks Ltd.
 
 Usage:
-    bridge --config <config> --database <database>
+    bridge [options] --config <config> --database <database>
     bridge -h | --help
     bridge -v | --version
 
 Options:
-    -h, --help           Display help message and exit.
-    -v, --version        Print version and exit.
+    -h, --help                        Display help message and exit.
+    -v, --version                     Print version and exit.
+    --allow-insecure-rpc-endpoints    Allow non-HTTPS endpoints
 "#;
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +88,7 @@ pub struct Args {
 	arg_config: PathBuf,
 	arg_database: PathBuf,
 	flag_version: bool,
+	flag_allow_insecure_rpc_endpoints: bool,
 }
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -128,7 +130,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	}
 
 	info!(target: "bridge", "Loading config");
-	let config = Config::load(args.arg_config)?;
+	let config = Config::load(args.arg_config, args.flag_allow_insecure_rpc_endpoints)?;
 
 	info!(target: "bridge", "Starting event loop");
 	let mut event_loop = Core::new().unwrap();
