@@ -34,6 +34,8 @@ and they can convert them back as well.
 
 Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
 
+Requires `rustc` >= 1.26.
+
 Requires `solc` to be in `$PATH`: [installation instructions.](https://solidity.readthedocs.io/en/develop/installing-solidity.html)
 
 Assuming you've cloned the bridge (`git clone git@github.com:poanetwork/poa-bridge.git`), run
@@ -82,6 +84,9 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
+gas_price_oracle_url = "https://gasprice.poa.network"
+gas_price_speed = "instant"
+default_gas_price = 10000000000 # 10 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
@@ -130,14 +135,15 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 #### transaction options
 
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.deposit_relay.gas_price` - specify gas price for deposit relay
 - `transaction.deposit_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
-- `transaction.withdraw_confirm.gas_price` - specify gas price for withdraw confirm
 - `transaction.withdraw_confirm.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
-- `transaction.withdraw_relay.gas_price` - specify gas price for withdraw relay
 - `transaction.withdraw_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
+
+#### transaction options when building with `deploy` feature
+- `transaction.home_deploy.gas`, `transaction.foreign_deploy.gas` - specify how much gas should be consumed when deploying a contract to the home or foreign chain. Defaults to: `0`.
+- `transaction.home_deploy.gas_price`, `transaction.foreign_deploy.gas_price` - specify the gas price to use when deploying a contract to the home or foreign chain.  Defaults to: `0 WEI`.
 
 ### Database file format
 

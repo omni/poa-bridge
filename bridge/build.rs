@@ -1,6 +1,29 @@
 use std::process::Command;
+use std::str;
+
+fn check_rustc_version() {
+    if let Ok(output) = Command::new("rustc").arg("--version").output() {
+        let version = str::from_utf8(&output.stdout).unwrap()
+			.split(' ')
+			.nth(1).unwrap();
+        
+		let mut split_version = version.split('.');
+		let major_version: u8 = split_version.next().unwrap().parse().unwrap();
+		let minor_version: u8 = split_version.next().unwrap().parse().unwrap();
+		
+		if major_version == 1 && minor_version < 26 {
+		    panic!(
+				"Invalid rustc version, `poa-bridge` requires \
+				rustc >= 1.26, found version: {}",
+				version
+			);
+		}
+	}
+}
 
 fn main() {
+	check_rustc_version();
+
 	// rerun build script if bridge contract has changed.
 	// without this cargo doesn't since the bridge contract
 	// is outside the crate directories
