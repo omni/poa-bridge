@@ -5,6 +5,7 @@ extern crate web3;
 extern crate bridge;
 #[macro_use]
 extern crate pretty_assertions;
+extern crate ethcore;
 
 use std::cell::Cell;
 use web3::Transport;
@@ -35,9 +36,47 @@ impl Transport for MockedTransport {
 	type Out = web3::Result<rpc::Value>;
 
 	fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (usize, rpc::Call) {
-		let n = self.requests.get();
+		let n = self.requests.get();		
 		assert_eq!(&self.expected_requests[n].method as &str, method, "invalid method called");
-		assert_eq!(self.expected_requests[n].params, params, "invalid method params");
+
+		for (expected_params, params) in self.expected_requests[n].params.iter().zip(params.iter()) {
+			assert_eq!(expected_params.get("address"), params.get("address"), "invalid method params, addresses do not match");
+			assert_eq!(expected_params.get("fromBlock"), params.get("fromBlock"), "invalid method params, from-blocks do not match");
+			assert_eq!(expected_params.get("limit"), params.get("limit"), "invalid method params, limits do not match");
+			assert_eq!(expected_params.get("toBlock"), params.get("toBlock"), "invalid method params, to-blocks do not match");
+						
+			let expected_topics: Vec<rpc::Value> = if let Some(ref topics) = expected_params.get("topics") {
+				topics.as_array().unwrap().clone()
+					.iter()
+					.filter_map(|topic|
+						if topic != &rpc::Value::Null {
+							Some(topic.clone())
+						} else {
+							None
+						}
+					)
+					.collect()
+			} else {
+				vec![]
+			};
+
+			let topics: Vec<rpc::Value> = if let Some(ref topics) = params.get("topics") {
+				topics.as_array().unwrap().clone()
+					.iter()
+					.filter_map(|topic|
+						if topic != &rpc::Value::Null {
+							Some(topic.clone())
+						} else {
+							None
+						}
+					)
+					.collect()
+			} else {
+				vec![]
+			};
+
+			assert_eq!(expected_topics, topics, "invalid method params, topics do not match");
+		}
 		self.requests.set(n + 1);
 
 		let request = web3::helpers::build_request(1, method, params);
@@ -98,15 +137,16 @@ macro_rules! test_app_stream {
 			use self::futures::{Future, Stream};
 			use self::bridge::app::{App, Connections};
 			use self::bridge::contracts::{foreign, home};
-			use self::bridge::config::{Config, Authorities, Node, ContractConfig, Transactions, TransactionConfig};
+			use self::bridge::config::{Config, Authorities, Node, NodeInfo, ContractConfig, Transactions, TransactionConfig, GasPriceSpeed};
 			use self::bridge::database::Database;
-
+			use ethcore::account_provider::AccountProvider;
+			
 			let home = $crate::MockedTransport {
 				requests: Default::default(),
 				expected_requests: vec![$($home_method),*].into_iter().zip(vec![$($home_req),*].into_iter()).map(Into::into).collect(),
 				mocked_responses: vec![$($home_res),*],
 			};
-
+			
 			let foreign = $crate::MockedTransport {
 				requests: Default::default(),
 				expected_requests: vec![$($foreign_method),*].into_iter().zip(vec![$($foreign_req),*].into_iter()).map(Into::into).collect(),
@@ -125,6 +165,12 @@ macro_rules! test_app_stream {
 					required_confirmations: $home_conf,
 					rpc_host: "".into(),
 					rpc_port: 8545,
+					password: "password.txt".into(),
+					info: NodeInfo::default(),
+					gas_price_oracle_url: None,
+					gas_price_speed: GasPriceSpeed::Fast,
+					gas_price_timeout: Duration::from_secs(5),
+					default_gas_price: 0,
 				},
 				foreign: Node {
 					account: $foreign_acc.parse().unwrap(),
@@ -136,6 +182,12 @@ macro_rules! test_app_stream {
 					required_confirmations: $foreign_conf,
 					rpc_host: "".into(),
 					rpc_port: 8545,
+					password: "password.txt".into(),
+					info: NodeInfo::default(),
+					gas_price_oracle_url: None,
+					gas_price_speed: GasPriceSpeed::Fast,
+					gas_price_timeout: Duration::from_secs(5),
+					default_gas_price: 0,
 				},
 				authorities: Authorities {
 					accounts: $authorities_accs.iter().map(|a: &&str| a.parse().unwrap()).collect(),
@@ -156,9 +208,10 @@ macro_rules! test_app_stream {
 				foreign_bridge: foreign::ForeignBridge::default(),
 				timer: Default::default(),
 				running: Arc::new(AtomicBool::new(true)),
+				keystore: AccountProvider::transient_provider(),
 			};
 
-			let app = Arc::new(app);
+			let app = Arc::new(app);			
 			let stream = $init_stream(app, &$db);
 			let res = stream.collect().wait();
 
