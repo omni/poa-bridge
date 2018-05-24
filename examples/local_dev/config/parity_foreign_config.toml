@@ -1,0 +1,27 @@
+[parity]
+chain = "dev"
+base_path = "tmp/foreign"
+
+[network]
+port = 30311
+
+[rpc]
+port = 8551
+apis = ["all"]
+
+[websockets]
+disable = true
+
+[ipc]
+path = "foreign.ipc"
+
+[dapps]
+disable = true
+[mining]
+reseal_min_period = 0
+
+[ui]
+disable = true
+
+[misc]
+logging = "rpc=trace"

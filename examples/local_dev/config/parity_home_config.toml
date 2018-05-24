@@ -1,0 +1,27 @@
+[parity]
+chain = "dev"
+base_path = "tmp/home"
+
+[network]
+port = 30310
+
+[rpc]
+port = 8550
+apis = ["all"]
+
+[websockets]
+disable = true
+
+[ipc]
+path = "home.ipc"
+
+[dapps]
+disable = true
+[mining]
+reseal_min_period = 0
+
+[ui]
+disable = true
+
+[misc]
+logging = "rpc=trace"
