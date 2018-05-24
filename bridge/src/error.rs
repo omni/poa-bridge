@@ -5,6 +5,8 @@ use tokio_timer::{TimerError, TimeoutError};
 use {web3, toml, ethabi, rustc_hex};
 use ethcore::ethstore;
 use ethcore::account_provider::{SignError, Error as AccountError};
+use serde_json;
+use hyper;
 
 error_chain! {
 	types {
@@ -17,6 +19,8 @@ error_chain! {
 		Ethabi(ethabi::Error);
 		Timer(TimerError);
 		Hex(rustc_hex::FromHexError);
+		Json(serde_json::Error);
+		Hyper(hyper::Error);
 	}
 
 	errors {

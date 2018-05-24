@@ -116,6 +116,10 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
 - `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
 - `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
+- `home/foreign.gas_price_oracle_url` - the URL used to query the current gas-price for the home and foreign nodes, this service is known as the gas-price Oracle. This config option defaults to `None` if not supplied in the User's config TOML file. If this config value is `None`, no Oracle gas-price querying will occur, resulting in the config value for `home/foreign.default_gas_price` being used for all gas-prices.
+- `home/foreign.gas_price_timeout` - the number of seconds to wait for an HTTP response from the gas price oracle before using the default gas price. Defaults to `10 seconds`.
+- `home/foreign.gas_price_speed_type` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
+- `home/foreign.default_gas_price` - the default gas price (in WEI) used in transactions with the home or foreign nodes. The `default_gas_price` is used when the Oracle cannot be reached. The default value is `15_000_000_000` WEI (ie. 15 GWEI).
 
 #### authorities options
 

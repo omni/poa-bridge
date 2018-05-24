@@ -123,6 +123,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target: "bridge", "Starting event loop");
 	let mut event_loop = Core::new().unwrap();
+	let handle = event_loop.handle();
 
 	info!(target: "bridge", "Home rpc host {}", config.clone().home.rpc_host);
 	info!(target: "bridge", "Foreign rpc host {}", config.clone().foreign.rpc_host);
@@ -130,7 +131,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	info!(target: "bridge", "Establishing connection:");
 
 	info!(target:"bridge", "  using RPC connection");
-	let app = match App::new_http(config.clone(), &args.arg_database, &event_loop.handle(), running.clone()) {
+	let app = match App::new_http(config.clone(), &args.arg_database, &handle, running.clone()) {
 		Ok(app) => app,
 		Err(e) => {
 			warn!("Can't establish an RPC connection: {:?}", e);
@@ -176,8 +177,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	};
 
 	info!(target: "bridge", "Starting listening to events");
-	let bridge = create_bridge(app.clone(), &database, home_chain_id, foreign_chain_id)
-		.and_then(|_| future::ok(true)).collect();
+	let bridge = create_bridge(app.clone(), &database, &handle, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();
 	let mut result = event_loop.run(bridge);
 	loop {
 		match result {

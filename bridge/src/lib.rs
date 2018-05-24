@@ -30,6 +30,8 @@ extern crate keccak_hash;
 extern crate jsonrpc_core as rpc;
 
 extern crate itertools;
+extern crate hyper;
+extern crate hyper_tls;
 
 #[cfg(test)]
 #[macro_use]

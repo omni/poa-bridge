@@ -5,6 +5,7 @@ extern crate web3;
 extern crate bridge;
 #[macro_use]
 extern crate tests;
+extern crate ethcore;
 
 use std::time::Duration;
 use web3::types::{FilterBuilder, H160, H256, Log};
@@ -336,8 +337,14 @@ test_transport_stream! {
 			address: "0000000000000000000000000000000000000001".into(),
 			topics: vec![],
 			data: vec![0x10].into(),
-			log_type: "".into(),
-			..Default::default()
+			block_hash: None,
+			block_number: None, 
+			transaction_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			removed: None,
 		}],
 	}],
 	"eth_blockNumber" =>
@@ -379,8 +386,14 @@ test_transport_stream! {
 			address: "0000000000000000000000000000000000000001".into(),
 			topics: vec![],
 			data: vec![0x10].into(),
-			log_type: "".into(),
-			..Default::default()
+			block_hash: None,
+			block_number: None, 
+			transaction_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			removed: None,
 		}],
 	}, LogStreamItem {
 		from: 0x1007,
@@ -393,14 +406,26 @@ test_transport_stream! {
 			address: "0000000000000000000000000000000000000002".into(),
 			topics: vec![],
 			data: vec![0x20].into(),
-			log_type: "".into(),
-			..Default::default()
+			block_hash: None,
+			block_number: None, 
+			transaction_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			removed: None,
 		}, Log {
 			address: "0000000000000000000000000000000000000002".into(),
 			topics: vec![],
 			data: vec![0x30].into(),
-			log_type: "".into(),
-			..Default::default()
+			block_hash: None,
+			block_number: None, 
+			transaction_hash: None,
+			transaction_index: None,
+			log_index: None,
+			transaction_log_index: None,
+			log_type: None,
+			removed: None,
 		}],
 	}],
 	"eth_blockNumber" =>
