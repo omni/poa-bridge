@@ -9,6 +9,7 @@ extern crate tests;
 extern crate ethabi;
 extern crate rustc_hex;
 extern crate ethereum_types;
+extern crate ethcore;
 
 use rustc_hex::{ToHex, FromHex};
 use bridge::bridge::create_withdraw_confirm;
@@ -36,7 +37,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -86,7 +87,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -140,7 +141,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -198,10 +199,11 @@ test_app_stream! {
 		withdraw_confirm: TransactionConfig {
 			gas: 0xfe,
 			gas_price: 0xa1,
+			concurrency: 100,
 		},
 		..Default::default()
 	},
-	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -303,10 +305,11 @@ test_app_stream! {
 		withdraw_confirm: TransactionConfig {
 			gas: 0xff,
 			gas_price: 0xaa,
+			concurrency: 100,
 		},
 		..Default::default()
 	},
-	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_confirm(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x2, 0x1006],
 	home_transport => [],
 	foreign_transport => [

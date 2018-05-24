@@ -76,7 +76,7 @@ pub enum WithdrawRelayState<T: Transport> {
 	Yield(Option<u64>),
 }
 
-pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>, home_chain_id: u64) -> WithdrawRelay<T> {
+pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, home_balance: Arc<RwLock<Option<U256>>>, home_chain_id: u64, home_gas_price: Arc<RwLock<u64>>) -> WithdrawRelay<T> {
 	let logs_init = api::LogStreamInit {
 		after: init.checked_withdraw_relay,
 		request_timeout: app.config.foreign.request_timeout,
@@ -93,6 +93,7 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		app,
 		home_balance,
 		home_chain_id,
+		home_gas_price,
 	}
 }
 
@@ -104,6 +105,7 @@ pub struct WithdrawRelay<T: Transport> {
 	home_contract: Address,
 	home_balance: Arc<RwLock<Option<U256>>>,
 	home_chain_id: u64,
+	home_gas_price: Arc<RwLock<u64>>,
 }
 
 impl<T: Transport> Stream for WithdrawRelay<T> {
@@ -113,6 +115,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 		let app = &self.app;
 		let gas = self.app.config.txs.withdraw_relay.gas.into();
+		let gas_price = U256::from(*self.home_gas_price.read().unwrap());
 		let contract = self.home_contract.clone();
 		let home = &self.app.config.home;
 		let t = &self.app.connections.home;
@@ -178,7 +181,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					info!("fetching messages and signatures complete");
 					assert_eq!(messages_raw.len(), signatures_raw.len());
 
-					let balance_required = U256::from(self.app.config.txs.withdraw_relay.gas) * U256::from(self.app.config.txs.withdraw_relay.gas_price) * U256::from(messages_raw.len());
+					let balance_required = gas * gas_price * U256::from(messages_raw.len());
 					if balance_required > *home_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
@@ -221,7 +224,8 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 								message.clone().0).into();
 							let gas_price = MessageToMainnet::from_bytes(message.0.as_slice()).mainnet_gas_price;
 							let tx = Transaction {
-									gas, gas_price,
+									gas,
+									gas_price,
 									value: U256::zero(),
 									data: payload.0,
 									nonce: U256::zero(),

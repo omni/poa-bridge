@@ -4,6 +4,7 @@ extern crate serde_json;
 extern crate bridge;
 #[macro_use]
 extern crate tests;
+extern crate ethcore;
 
 use bridge::bridge::create_deposit_relay;
 
@@ -27,7 +28,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [
 		"eth_blockNumber" =>
@@ -77,7 +78,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [
 		"eth_blockNumber" =>
@@ -146,10 +147,11 @@ test_app_stream! {
 		deposit_relay: TransactionConfig {
 			gas: 0xfd,
 			gas_price: 0xa0,
+			concurrency: 100,
 		},
 		..Default::default()
 	},
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		"eth_blockNumber" =>
@@ -202,7 +204,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		"eth_blockNumber" =>
@@ -257,7 +259,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		"eth_blockNumber" =>
@@ -308,7 +310,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_deposit_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		"eth_blockNumber" =>

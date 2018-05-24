@@ -9,6 +9,7 @@ extern crate tests;
 extern crate ethabi;
 extern crate ethereum_types;
 extern crate rustc_hex;
+extern crate ethcore;
 
 use ethereum_types::{U256, H256};
 use rustc_hex::ToHex;
@@ -41,7 +42,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(2),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(2),
 	expected => vec![0x1005, 0x1006],
 	home_transport => [],
 	foreign_transport => [
@@ -92,7 +93,7 @@ test_app_stream! {
 		],
 		signatures => 1;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [],
 	foreign_transport => [
@@ -140,7 +141,7 @@ test_app_stream! {
 		],
 		signatures => 2;
 	txs => Transactions::default(),
-	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into())))).take(1),
+	init => |app, db| create_withdraw_relay(app, db, Arc::new(RwLock::new(Some(99999999999u64.into()))), 17, Arc::new(RwLock::new(1))).take(1),
 	expected => vec![0x1005],
 	home_transport => [
 		// `HomeBridge.withdraw`

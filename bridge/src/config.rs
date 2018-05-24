@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
+use std::str::FromStr;
 use std::time::Duration;
 #[cfg(feature = "deploy")]
 use rustc_hex::FromHex;
@@ -15,6 +16,9 @@ const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 3600;
 const DEFAULT_RPC_PORT: u16 = 8545;
 const DEFAULT_CONCURRENCY: usize = 100;
+const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
+const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 10;
+const DEFAULT_GAS_PRICE_WEI: u64 = 15_000_000_000;
 
 /// Application config.
 #[derive(Debug, PartialEq, Clone)]
@@ -71,6 +75,10 @@ pub struct Node {
 	pub rpc_port: u16,
 	pub password: PathBuf,
 	pub info: NodeInfo,
+	pub gas_price_oracle_url: Option<String>,
+	pub gas_price_speed: GasPriceSpeed,
+	pub gas_price_timeout: Duration,
+	pub default_gas_price: u64,
 }
 
 use std::sync::{Arc, RwLock};
@@ -97,6 +105,20 @@ impl PartialEq for NodeInfo {
 
 impl Node {
 	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
+		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
+		
+		let gas_price_speed = match node.gas_price_speed {
+			Some(ref s) => GasPriceSpeed::from_str(s).unwrap(),
+			None => DEFAULT_GAS_PRICE_SPEED
+		};
+
+		let gas_price_timeout = {
+			let n_secs = node.gas_price_timeout.unwrap_or(DEFAULT_GAS_PRICE_TIMEOUT_SECS);
+			Duration::from_secs(n_secs)
+		};
+
+		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
+
 		let result = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
@@ -115,6 +137,10 @@ impl Node {
 			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
 			password: node.password,
 			info: Default::default(),
+			gas_price_oracle_url,
+			gas_price_speed,
+			gas_price_timeout,
+			default_gas_price,
 		};
 
 		Ok(result)
@@ -184,6 +210,40 @@ pub struct Authorities {
 	pub required_signatures: u32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GasPriceSpeed {
+    Instant,
+    Fast,
+    Standard,
+    Slow,
+}
+
+impl FromStr for GasPriceSpeed {
+	type Err = ();
+	
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let speed = match s {
+			"instant" => GasPriceSpeed::Instant,
+			"fast" => GasPriceSpeed::Fast,
+			"standard" => GasPriceSpeed::Standard,
+			"slow" => GasPriceSpeed::Slow,
+			_ => return Err(()),
+		};
+		Ok(speed)
+	}
+}
+
+impl GasPriceSpeed {
+	pub fn as_str(&self) -> &str {
+		match *self {
+			GasPriceSpeed::Instant => "instant",
+			GasPriceSpeed::Fast => "fast",
+			GasPriceSpeed::Standard => "standard",
+			GasPriceSpeed::Slow => "slow",
+		}
+	}
+}
+
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
@@ -213,6 +273,10 @@ mod load {
 		pub rpc_host: Option<String>,
 		pub rpc_port: Option<u16>,
 		pub password: PathBuf,
+		pub gas_price_oracle_url: Option<String>,
+		pub gas_price_speed: Option<String>,
+		pub gas_price_timeout: Option<u64>,
+		pub default_gas_price: Option<u64>,
 	}
 
 	#[derive(Deserialize)]
@@ -258,7 +322,7 @@ mod tests {
 	use super::ContractConfig;
 	#[cfg(feature = "deploy")]
     use super::TransactionConfig;
-	use super::DEFAULT_TIMEOUT;
+	use super::{DEFAULT_TIMEOUT, DEFAULT_CONCURRENCY, DEFAULT_GAS_PRICE_SPEED, DEFAULT_GAS_PRICE_TIMEOUT_SECS, DEFAULT_GAS_PRICE_WEI};
 
 	#[test]
 	fn load_full_setup_from_str() {
@@ -314,6 +378,10 @@ home_deploy = { gas = 20 }
 				rpc_port: 8545,
 				password: "password".into(),
 				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -328,6 +396,10 @@ home_deploy = { gas = 20 }
 				rpc_port: 8545,
 				password: "password".into(),
 				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -346,6 +418,7 @@ home_deploy = { gas = 20 }
 			expected.txs.home_deploy = TransactionConfig {
 				gas: 20,
 				gas_price: 0,
+				concurrency: DEFAULT_CONCURRENCY,
 			};
 		}
 
@@ -398,6 +471,10 @@ required_signatures = 2
 				rpc_port: 8545,
 				password: "password".into(),
 				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -412,6 +489,10 @@ required_signatures = 2
 				rpc_port: 8545,
 				password: "password".into(),
 				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			authorities: Authorities {
 				accounts: vec![
