@@ -34,8 +34,6 @@ and they can convert them back as well.
 
 Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
 
-Requires `rustc` >= 1.26.
-
 Requires `solc` to be in `$PATH`: [installation instructions.](https://solidity.readthedocs.io/en/develop/installing-solidity.html)
 
 Assuming you've cloned the bridge (`git clone git@github.com:poanetwork/poa-bridge.git`), run
@@ -86,7 +84,7 @@ required_confirmations = 0
 password = "home_password.txt"
 gas_price_oracle_url = "https://gasprice.poa.network"
 gas_price_speed = "instant"
-default_gas_price = 10000000000 # 10 GWEI
+default_gas_price = 10_000_000_000 # 10 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
