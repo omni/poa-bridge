@@ -50,6 +50,7 @@ impl Config {
 			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: config.authorities.accounts,
 				required_signatures: config.authorities.required_signatures,
 			},
@@ -206,6 +207,7 @@ pub struct ContractConfig {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Authorities {
+	#[cfg(feature = "deploy")]
 	pub accounts: Vec<Address>,
 	pub required_signatures: u32,
 }
@@ -305,8 +307,9 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
-	#[serde(deny_unknown_fields)]
 	pub struct Authorities {
+		#[cfg(feature = "deploy")]
+		#[serde(default)]
 		pub accounts: Vec<Address>,
 		pub required_signatures: u32,
 	}
@@ -351,11 +354,6 @@ password = "password"
 bin = "../compiled_contracts/ForeignBridge.bin"
 
 [authorities]
-accounts = [
-	"0x0000000000000000000000000000000000000001",
-	"0x0000000000000000000000000000000000000002",
-	"0x0000000000000000000000000000000000000003"
-]
 required_signatures = 2
 
 [transactions]
@@ -402,10 +400,8 @@ home_deploy = { gas = 20 }
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: vec![
-					"0000000000000000000000000000000000000001".into(),
-					"0000000000000000000000000000000000000002".into(),
-					"0000000000000000000000000000000000000003".into(),
 				],
 				required_signatures: 2,
 			},
@@ -449,11 +445,6 @@ password = "password"
 bin = "../compiled_contracts/ForeignBridge.bin"
 
 [authorities]
-accounts = [
-	"0x0000000000000000000000000000000000000001",
-	"0x0000000000000000000000000000000000000002",
-	"0x0000000000000000000000000000000000000003"
-]
 required_signatures = 2
 "#;
 		let expected = Config {
@@ -495,10 +486,8 @@ required_signatures = 2
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
 			},
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: vec![
-					"0000000000000000000000000000000000000001".into(),
-					"0000000000000000000000000000000000000002".into(),
-					"0000000000000000000000000000000000000003".into(),
 				],
 				required_signatures: 2,
 			},

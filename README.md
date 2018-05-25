@@ -91,11 +91,6 @@ required_confirmations = 0
 password = "foreign_password.txt"
 
 [authorities]
-accounts = [
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-]
 required_signatures = 2
 
 [transactions]
