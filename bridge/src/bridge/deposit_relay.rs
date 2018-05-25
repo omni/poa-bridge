@@ -11,6 +11,7 @@ use util::web3_filter;
 use app::App;
 use ethcore_transaction::{Transaction, Action};
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 use itertools::Itertools;
 
 fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
@@ -72,7 +73,7 @@ pub struct DepositRelay<T: Transport> {
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -126,7 +127,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 				},
 				DepositRelayState::Yield(ref mut block) => match block.take() {
 					None => DepositRelayState::Wait,
-					some => return Ok(some.into()),
+					Some(v) => return Ok(Some(BridgeChecked::DepositRelay(v)).into()),
 				}
 			};
 			self.state = next_state;
