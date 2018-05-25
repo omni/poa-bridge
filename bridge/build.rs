@@ -1,6 +1,27 @@
+extern crate rustc_version;
+
 use std::process::Command;
 
+use rustc_version::{version as get_rustc_version, Version};
+
+fn check_rustc_version() {
+	let minimum_required_version = Version::new(1, 26, 0);
+
+    if let Ok(version) = get_rustc_version() {
+        if version < minimum_required_version {
+			panic!(
+				"Invalid rustc version, `poa-bridge` requires \
+				rustc >= {}, found version: {}",
+				minimum_required_version,
+				version
+			);
+		}
+	}
+}
+
 fn main() {
+	check_rustc_version();
+
 	// rerun build script if bridge contract has changed.
 	// without this cargo doesn't since the bridge contract
 	// is outside the crate directories
