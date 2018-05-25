@@ -12,7 +12,6 @@ use config::{GasPriceSpeed, Node};
 use error::Error;
 
 const CACHE_TIMEOUT_DURATION: Duration = Duration::from_secs(5 * 60);
-const REQUEST_TIMEOUT_DURATION: Duration = Duration::from_secs(30);
 
 enum State {
     Initial,
@@ -27,6 +26,8 @@ pub struct GasPriceStream {
     speed: GasPriceSpeed,
     request_timer: Timer,
     interval: Interval,
+    last_price: u64,
+    request_timeout: Duration,
 }
 
 impl GasPriceStream {
@@ -44,6 +45,8 @@ impl GasPriceStream {
             speed: node.gas_price_speed,
             request_timer: timer.clone(),
             interval: timer.interval_at(Instant::now(), CACHE_TIMEOUT_DURATION),
+            last_price: node.default_gas_price,
+            request_timeout: node.request_timeout,
         }
     }
 }
@@ -66,7 +69,7 @@ impl Stream for GasPriceStream {
                         );
 
                     let request_future = self.request_timer
-                        .timeout(request, REQUEST_TIMEOUT_DURATION);
+                        .timeout(request, self.request_timeout);
 
                     State::WaitingForResponse(request_future)
                 },
@@ -74,21 +77,37 @@ impl Stream for GasPriceStream {
                     match request_future.poll() {
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Ok(Async::Ready(chunk)) => {
-                            let json_obj: HashMap<String, json::Value> = json::from_slice(&chunk)?;
-
-                            let gas_price = match json_obj.get(self.speed.as_str()) {
-                                Some(json::Value::Number(price)) => (price.as_f64().unwrap() * 1_000_000_000.0).trunc() as u64,
-                                _ => unreachable!(),
-                            };
-
-                            State::Yield(Some(gas_price))
+                            match json::from_slice::<HashMap<String, json::Value>>(&chunk) {
+								Ok(json_obj) => {
+									match json_obj.get(self.speed.as_str()) {
+										Some(json::Value::Number(price)) => State::Yield(Some((price.as_f64().unwrap() * 1_000_000_000.0).trunc() as u64)),
+										_ => {
+											error!("Invalid or missing gas price ({}) in the gas price oracle response: {}", self.speed.as_str(), String::from_utf8_lossy(&*chunk));
+											State::Yield(Some(self.last_price))
+										},
+									}
+								},
+								Err(e) => {
+									error!("Error while parsing response from gas price oracle: {:?} {}", e, String::from_utf8_lossy(&*chunk));
+									State::Yield(Some(self.last_price))
+								}
+							}
                         },
-                        Err(e) => panic!(e), 
+                        Err(e) => {
+                            error!("Error while fetching gas price: {:?}", e);
+							State::Yield(Some(self.last_price))
+                        },
                     }
                 },
                 State::Yield(ref mut opt) => match opt.take() {
 					None => State::Initial,
-					price => return Ok(Async::Ready(price)),
+					Some(price) => {
+						if price != self.last_price {
+							info!("Gas price: {} gwei", (price as f64) / 1_000_000_000.0);
+							self.last_price = price;
+						}
+						return Ok(Async::Ready(Some(price)))
+                    },
 				}
             };
 
