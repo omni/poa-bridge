@@ -82,6 +82,9 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
+gas_price_oracle_url = "https://gasprice.poa.network"
+gas_price_speed = "instant"
+default_gas_price = 10_000_000_000 # 10 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
@@ -99,9 +102,9 @@ accounts = [
 required_signatures = 2
 
 [transactions]
-deposit_relay = { gas = 3000000, gas_price = 1000000000 }
-withdraw_relay = { gas = 3000000, gas_price = 1000000000 }
-withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
+deposit_relay = { gas = 3000000 }
+withdraw_relay = { gas = 3000000 }
+withdraw_confirm = { gas = 3000000 }
 ```
 
 #### Options
@@ -130,13 +133,10 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 #### transaction options
 
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.deposit_relay.gas_price` - specify gas price for deposit relay
 - `transaction.deposit_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
-- `transaction.withdraw_confirm.gas_price` - specify gas price for withdraw confirm
 - `transaction.withdraw_confirm.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
-- `transaction.withdraw_relay.gas_price` - specify gas price for withdraw relay
 - `transaction.withdraw_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 
 ### Database file format
