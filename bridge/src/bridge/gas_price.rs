@@ -72,7 +72,7 @@ impl<F, R, I> GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future<Item = I, 
             request_timer: timer.clone(),
             interval: timer.interval_at(Instant::now(), CACHE_TIMEOUT_DURATION),
             last_price: node.default_gas_price,
-            request_timeout: node.request_timeout,
+            request_timeout: node.gas_price_timeout,
         }
     }
 }
