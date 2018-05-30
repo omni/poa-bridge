@@ -24,7 +24,7 @@ pub use self::chain_id::{ChainIdRetrieval, create_chain_id_retrieval};
 pub use self::deposit_relay::{DepositRelay, create_deposit_relay};
 pub use self::withdraw_relay::{WithdrawRelay, create_withdraw_relay};
 pub use self::withdraw_confirm::{WithdrawConfirm, create_withdraw_confirm};
-pub use self::gas_price::GasPriceStream;
+pub use self::gas_price::StandardGasPriceStream;
 
 /// Last block checked by the bridge components.
 #[derive(Clone, Copy)]
@@ -89,14 +89,14 @@ pub fn create_bridge_backed_by<T: Transport + Clone, F: BridgeBackend>(app: Arc<
 	let foreign_balance = Arc::new(RwLock::new(None));
 
 	let home_gas_stream = if app.config.home.gas_price_oracle_url.is_some() {
-		let stream = GasPriceStream::new(&app.config.home, handle, &app.timer);
+		let stream = StandardGasPriceStream::new(&app.config.home, handle, &app.timer);
 		Some(stream)
 	} else {
 		None
 	};
 
 	let foreign_gas_stream = if app.config.foreign.gas_price_oracle_url.is_some() {
-		let stream = GasPriceStream::new(&app.config.foreign, handle, &app.timer);
+		let stream = StandardGasPriceStream::new(&app.config.foreign, handle, &app.timer);
 		Some(stream)
 	} else {
 		None
@@ -134,8 +134,8 @@ pub struct Bridge<T: Transport, F> {
 	state: BridgeStatus,
 	backend: F,
 	running: Arc<AtomicBool>,
-	home_gas_stream: Option<GasPriceStream>,
-	foreign_gas_stream: Option<GasPriceStream>,
+	home_gas_stream: Option<StandardGasPriceStream>,
+	foreign_gas_stream: Option<StandardGasPriceStream>,
 	home_gas_price: Arc<RwLock<u64>>,
 	foreign_gas_price: Arc<RwLock<u64>>,
 }
