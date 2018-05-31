@@ -10,6 +10,8 @@ extern crate env_logger;
 extern crate bridge;
 extern crate ctrlc;
 extern crate jsonrpc_core as rpc;
+#[macro_use]
+extern crate version;
 
 use std::{env, fs, io};
 use std::sync::Arc;
@@ -73,15 +75,18 @@ POA-Ethereum bridge.
 Usage:
     bridge --config <config> --database <database>
     bridge -h | --help
+    bridge -v | --version
 
 Options:
     -h, --help           Display help message and exit.
+    -v, --version        Print version and exit.
 "#;
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
 	arg_config: PathBuf,
 	arg_database: PathBuf,
+	flag_version: bool,
 }
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -117,6 +122,10 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	info!(target: "bridge", "Parsing cli arguments");
 	let args: Args = Docopt::new(USAGE)
 		.and_then(|d| d.argv(command).deserialize()).map_err(|e| e.to_string())?;
+
+	if args.flag_version {
+		return Ok(version!().into())
+	}
 
 	info!(target: "bridge", "Loading config");
 	let config = Config::load(args.arg_config)?;
