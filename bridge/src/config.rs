@@ -108,7 +108,7 @@ impl PartialEq for NodeInfo {
 impl Node {
 	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
 		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
-		
+
 		let gas_price_speed = match node.gas_price_speed {
 			Some(ref s) => GasPriceSpeed::from_str(s).unwrap(),
 			None => DEFAULT_GAS_PRICE_SPEED
@@ -223,7 +223,7 @@ pub enum GasPriceSpeed {
 
 impl FromStr for GasPriceSpeed {
 	type Err = ();
-	
+
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let speed = match s {
 			"instant" => GasPriceSpeed::Instant,
@@ -255,6 +255,7 @@ mod load {
 	use web3::types::Address;
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Config {
 		pub home: Node,
 		pub foreign: Node,
@@ -266,6 +267,7 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Node {
 		pub account: Address,
 		#[cfg(feature = "deploy")]
@@ -284,6 +286,7 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Transactions {
 		#[cfg(feature = "deploy")]
 		pub home_deploy: Option<TransactionConfig>,
@@ -332,7 +335,6 @@ mod tests {
 	fn load_full_setup_from_str() {
 		let toml = r#"
 keystore = "/keys"
-estimated_gas_cost_of_withdraw = 100000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -342,23 +344,16 @@ rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "password"
 
-[home.contract]
-bin = "../compiled_contracts/HomeBridge.bin"
-
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "password"
 
-[foreign.contract]
-bin = "../compiled_contracts/ForeignBridge.bin"
-
 [authorities]
 required_signatures = 2
 
 [transactions]
-home_deploy = { gas = 20 }
 "#;
 
 		#[allow(unused_mut)]
@@ -366,10 +361,6 @@ home_deploy = { gas = 20 }
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
@@ -385,10 +376,6 @@ home_deploy = { gas = 20 }
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -408,17 +395,8 @@ home_deploy = { gas = 20 }
 				],
 				required_signatures: 2,
 			},
-			#[cfg(feature = "deploy")]
-			estimated_gas_cost_of_withdraw: 100_000,
 			keystore: "/keys/".into(),
 		};
-
-		#[cfg(feature = "deploy")] {
-			expected.txs.home_deploy = TransactionConfig {
-				gas: 20,
-				gas_price: 0,
-			};
-		}
 
 		let config = Config::load_from_str(toml).unwrap();
 		assert_eq!(expected, config);
@@ -428,23 +406,16 @@ home_deploy = { gas = 20 }
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
 keystore = "/keys/"
-estimated_gas_cost_of_withdraw = 200000000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 rpc_host = ""
 password = "password"
 
-[home.contract]
-bin = "../compiled_contracts/HomeBridge.bin"
-
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = ""
 password = "password"
-
-[foreign.contract]
-bin = "../compiled_contracts/ForeignBridge.bin"
 
 [authorities]
 required_signatures = 2
@@ -453,10 +424,6 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -472,10 +439,6 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -495,8 +458,6 @@ required_signatures = 2
 				],
 				required_signatures: 2,
 			},
-			#[cfg(feature = "deploy")]
-			estimated_gas_cost_of_withdraw: 200_000_000,
 			keystore: "/keys/".into(),
 		};
 
