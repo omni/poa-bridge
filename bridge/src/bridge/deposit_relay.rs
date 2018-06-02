@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Future, Stream, stream::{Collect, iter_ok, IterOk, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use web3::Transport;
 use web3::types::{U256, Address, Bytes, Log, FilterBuilder};
 use ethabi::RawLog;
@@ -35,7 +35,7 @@ enum DepositRelayState<T: Transport> {
 	Wait,
 	/// Relaying deposits in progress.
 	RelayDeposits {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	/// All deposits till given block has been relayed.
@@ -115,7 +115,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 
 					info!("relaying {} deposits", len);
 					DepositRelayState::RelayDeposits {
-						future: iter_ok(deposits).buffered(self.app.config.txs.deposit_relay.concurrency).collect(),
+						future: futures_unordered(deposits).collect(),
 						block: item.to,
 					}
 				},
