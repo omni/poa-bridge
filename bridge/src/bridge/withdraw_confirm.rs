@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 use std::ops;
-use futures::{self, Future, Stream, stream::{Collect, IterOk, iter_ok, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use web3::Transport;
 use web3::types::{U256, H520, Address, Bytes, FilterBuilder};
 use api::{self, LogStream};
@@ -13,6 +13,7 @@ use message_to_mainnet::{MessageToMainnet, MESSAGE_LENGTH};
 use ethcore_transaction::{Transaction, Action};
 use itertools::Itertools;
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 
 fn withdraws_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
 	let filter = foreign.events().withdraw().create_filter();
@@ -30,7 +31,7 @@ enum WithdrawConfirmState<T: Transport> {
 	Wait,
 	/// Confirming withdraws.
 	ConfirmWithdraws {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	/// All withdraws till given block has been confirmed.
@@ -68,7 +69,7 @@ pub struct WithdrawConfirm<T: Transport> {
 }
 
 impl<T: Transport> Stream for WithdrawConfirm<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -139,7 +140,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 
 					info!("submitting {} signatures", len);
 					WithdrawConfirmState::ConfirmWithdraws {
-						future: iter_ok(confirmations).buffered(self.app.config.txs.withdraw_confirm.concurrency).collect(),
+						future: futures_unordered(confirmations).collect(),
 						block,
 					}
 				},
@@ -153,7 +154,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						info!("waiting for new withdraws that should get signed");
 						WithdrawConfirmState::Wait
 					},
-					some => return Ok(some.into()),
+					Some(v) => return Ok(Some(BridgeChecked::WithdrawConfirm(v)).into()),
 				}
 			};
 			self.state = next_state;

@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Future, Stream, stream::{Collect, iter_ok, IterOk, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use web3::Transport;
 use web3::types::{U256, Address, Bytes, Log, FilterBuilder};
 use ethabi::RawLog;
@@ -11,6 +11,7 @@ use util::web3_filter;
 use app::App;
 use ethcore_transaction::{Transaction, Action};
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 use itertools::Itertools;
 
 fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
@@ -35,7 +36,7 @@ enum DepositRelayState<T: Transport> {
 	Wait,
 	/// Relaying deposits in progress.
 	RelayDeposits {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	/// All deposits till given block has been relayed.
@@ -72,7 +73,7 @@ pub struct DepositRelay<T: Transport> {
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -115,7 +116,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 
 					info!("relaying {} deposits", len);
 					DepositRelayState::RelayDeposits {
-						future: iter_ok(deposits).buffered(self.app.config.txs.deposit_relay.concurrency).collect(),
+						future: futures_unordered(deposits).collect(),
 						block: item.to,
 					}
 				},
@@ -126,7 +127,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 				},
 				DepositRelayState::Yield(ref mut block) => match block.take() {
 					None => DepositRelayState::Wait,
-					some => return Ok(some.into()),
+					Some(v) => return Ok(Some(BridgeChecked::DepositRelay(v)).into()),
 				}
 			};
 			self.state = next_state;

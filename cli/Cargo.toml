@@ -1,6 +1,6 @@
 [package]
 name = "bridge-cli"
-version = "0.2.0"
+version = "0.3.0"
 
 [[bin]]
 name = "bridge"
@@ -17,6 +17,7 @@ env_logger = "0.4"
 futures = "0.1.14"
 jsonrpc-core = "8.0"
 ctrlc = { version = "3.1", features = ["termination"] }
+version = "3"
 
 [features]
 default = []

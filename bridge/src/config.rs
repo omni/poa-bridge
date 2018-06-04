@@ -15,7 +15,7 @@ const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 3600;
 const DEFAULT_RPC_PORT: u16 = 8545;
-const DEFAULT_CONCURRENCY: usize = 100;
+pub(crate) const DEFAULT_CONCURRENCY: usize = 64;
 const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
 const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_GAS_PRICE_WEI: u64 = 15_000_000_000;
@@ -50,6 +50,7 @@ impl Config {
 			home: Node::from_load_struct(config.home)?,
 			foreign: Node::from_load_struct(config.foreign)?,
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: config.authorities.accounts,
 				#[cfg(feature = "deploy")]
 				required_signatures: config.authorities.required_signatures,
@@ -80,6 +81,7 @@ pub struct Node {
 	pub gas_price_speed: GasPriceSpeed,
 	pub gas_price_timeout: Duration,
 	pub default_gas_price: u64,
+	pub concurrent_http_requests: usize,
 }
 
 use std::sync::{Arc, RwLock};
@@ -107,7 +109,7 @@ impl PartialEq for NodeInfo {
 impl Node {
 	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
 		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
-		
+
 		let gas_price_speed = match node.gas_price_speed {
 			Some(ref s) => GasPriceSpeed::from_str(s).unwrap(),
 			None => DEFAULT_GAS_PRICE_SPEED
@@ -119,6 +121,7 @@ impl Node {
 		};
 
 		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
+		let concurrent_http_requests = node.concurrent_http_requests.unwrap_or(DEFAULT_CONCURRENCY);
 
 		let result = Node {
 			account: node.account,
@@ -142,6 +145,7 @@ impl Node {
 			gas_price_speed,
 			gas_price_timeout,
 			default_gas_price,
+			concurrent_http_requests,
 		};
 
 		Ok(result)
@@ -186,7 +190,6 @@ impl Transactions {
 pub struct TransactionConfig {
 	pub gas: u64,
 	pub gas_price: u64,
-	pub concurrency: usize,
 }
 
 impl TransactionConfig {
@@ -194,7 +197,6 @@ impl TransactionConfig {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
 			gas_price: cfg.gas_price.unwrap_or_default(),
-			concurrency: cfg.concurrency.unwrap_or(DEFAULT_CONCURRENCY),
 		}
 	}
 }
@@ -207,6 +209,7 @@ pub struct ContractConfig {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Authorities {
+	#[cfg(feature = "deploy")]
 	pub accounts: Vec<Address>,
 	#[cfg(feature = "deploy")]
 	pub required_signatures: u32,
@@ -222,7 +225,7 @@ pub enum GasPriceSpeed {
 
 impl FromStr for GasPriceSpeed {
 	type Err = ();
-	
+
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let speed = match s {
 			"instant" => GasPriceSpeed::Instant,
@@ -254,6 +257,7 @@ mod load {
 	use web3::types::Address;
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Config {
 		pub home: Node,
 		pub foreign: Node,
@@ -265,6 +269,7 @@ mod load {
 	}
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Node {
 		pub account: Address,
 		#[cfg(feature = "deploy")]
@@ -279,9 +284,11 @@ mod load {
 		pub gas_price_speed: Option<String>,
 		pub gas_price_timeout: Option<u64>,
 		pub default_gas_price: Option<u64>,
+		pub concurrent_http_requests: Option<usize>,
 	}
 
 	#[derive(Deserialize)]
+	#[serde(deny_unknown_fields)]
 	pub struct Transactions {
 		#[cfg(feature = "deploy")]
 		pub home_deploy: Option<TransactionConfig>,
@@ -297,7 +304,6 @@ mod load {
 	pub struct TransactionConfig {
 		pub gas: Option<u64>,
 		pub gas_price: Option<u64>,
-		pub concurrency: Option<usize>,
 	}
 
 	#[derive(Deserialize)]
@@ -308,6 +314,8 @@ mod load {
 
 	#[derive(Deserialize)]
 	pub struct Authorities {
+		#[cfg(feature = "deploy")]
+		#[serde(default)]
 		pub accounts: Vec<Address>,
 		#[cfg(feature = "deploy")]
 		pub required_signatures: u32,
@@ -330,7 +338,6 @@ mod tests {
 	fn load_full_setup_from_str() {
 		let toml = r#"
 keystore = "/keys"
-estimated_gas_cost_of_withdraw = 100000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -340,27 +347,16 @@ rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "password"
 
-[home.contract]
-bin = "../compiled_contracts/HomeBridge.bin"
-
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "password"
 
-[foreign.contract]
-bin = "../compiled_contracts/ForeignBridge.bin"
-
 [authorities]
-accounts = [
-	"0x0000000000000000000000000000000000000001",
-	"0x0000000000000000000000000000000000000002",
-	"0x0000000000000000000000000000000000000003"
-]
+required_signatures = 2
 
 [transactions]
-home_deploy = { gas = 20 }
 "#;
 
 		#[allow(unused_mut)]
@@ -368,10 +364,6 @@ home_deploy = { gas = 20 }
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
@@ -383,13 +375,10 @@ home_deploy = { gas = 20 }
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -401,26 +390,15 @@ home_deploy = { gas = 20 }
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: vec![
-					"0000000000000000000000000000000000000001".into(),
-					"0000000000000000000000000000000000000002".into(),
-					"0000000000000000000000000000000000000003".into(),
 				],
 			},
-			#[cfg(feature = "deploy")]
-			estimated_gas_cost_of_withdraw: 100_000,
 			keystore: "/keys/".into(),
 		};
-
-		#[cfg(feature = "deploy")] {
-			expected.txs.home_deploy = TransactionConfig {
-				gas: 20,
-				gas_price: 0,
-				concurrency: DEFAULT_CONCURRENCY,
-			};
-		}
 
 		let config = Config::load_from_str(toml).unwrap();
 		assert_eq!(expected, config);
@@ -430,39 +408,24 @@ home_deploy = { gas = 20 }
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
 keystore = "/keys/"
-estimated_gas_cost_of_withdraw = 200000000
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 rpc_host = ""
 password = "password"
 
-[home.contract]
-bin = "../compiled_contracts/HomeBridge.bin"
-
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
 rpc_host = ""
 password = "password"
 
-[foreign.contract]
-bin = "../compiled_contracts/ForeignBridge.bin"
-
 [authorities]
-accounts = [
-	"0x0000000000000000000000000000000000000001",
-	"0x0000000000000000000000000000000000000002",
-	"0x0000000000000000000000000000000000000003"
-]
+required_signatures = 2
 "#;
 		let expected = Config {
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/HomeBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -474,13 +437,10 @@ accounts = [
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				#[cfg(feature = "deploy")]
-				contract: ContractConfig {
-					bin: include_str!("../../compiled_contracts/ForeignBridge.bin").from_hex().unwrap().into(),
-				},
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -492,16 +452,13 @@ accounts = [
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			authorities: Authorities {
+				#[cfg(feature = "deploy")]
 				accounts: vec![
-					"0000000000000000000000000000000000000001".into(),
-					"0000000000000000000000000000000000000002".into(),
-					"0000000000000000000000000000000000000003".into(),
 				],
 			},
-			#[cfg(feature = "deploy")]
-			estimated_gas_cost_of_withdraw: 200_000_000,
 			keystore: "/keys/".into(),
 		};
 

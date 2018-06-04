@@ -82,6 +82,9 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
+gas_price_oracle_url = "https://gasprice.poa.network"
+gas_price_speed = "instant"
+default_gas_price = 10_000_000_000 # 10 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
@@ -91,16 +94,12 @@ required_confirmations = 0
 password = "foreign_password.txt"
 
 [authorities]
-accounts = [
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421",
-    "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-]
+required_signatures = 2
 
 [transactions]
-deposit_relay = { gas = 3000000, gas_price = 1000000000 }
-withdraw_relay = { gas = 3000000, gas_price = 1000000000 }
-withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
+deposit_relay = { gas = 3000000 }
+withdraw_relay = { gas = 3000000 }
+withdraw_confirm = { gas = 3000000 }
 ```
 
 #### Options
@@ -118,8 +117,9 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 - `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
 - `home/foreign.gas_price_oracle_url` - the URL used to query the current gas-price for the home and foreign nodes, this service is known as the gas-price Oracle. This config option defaults to `None` if not supplied in the User's config TOML file. If this config value is `None`, no Oracle gas-price querying will occur, resulting in the config value for `home/foreign.default_gas_price` being used for all gas-prices.
 - `home/foreign.gas_price_timeout` - the number of seconds to wait for an HTTP response from the gas price oracle before using the default gas price. Defaults to `10 seconds`.
-- `home/foreign.gas_price_speed_type` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
+- `home/foreign.gas_price_speed` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
 - `home/foreign.default_gas_price` - the default gas price (in WEI) used in transactions with the home or foreign nodes. The `default_gas_price` is used when the Oracle cannot be reached. The default value is `15_000_000_000` WEI (ie. 15 GWEI).
+- `home/foreign.concurrent_http_requests` - the number of concurrent HTTP requests allowed in-flight (default: **64**)
 
 #### authorities options
 
@@ -128,14 +128,8 @@ withdraw_confirm = { gas = 3000000, gas_price = 1000000000 }
 #### transaction options
 
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.deposit_relay.gas_price` - specify gas price for deposit relay
-- `transaction.deposit_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
-- `transaction.withdraw_confirm.gas_price` - specify gas price for withdraw confirm
-- `transaction.withdraw_confirm.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
-- `transaction.withdraw_relay.gas_price` - specify gas price for withdraw relay
-- `transaction.withdraw_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 
 ### Database file format
 

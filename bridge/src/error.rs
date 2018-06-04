@@ -61,6 +61,10 @@ error_chain! {
 		    description("contextualized error")
 		    display("{:?} in {}", err, context)
 		}
+		OtherError(error: String) {
+		    description("other error")
+		    display("{}", error)
+		}
 	}
 }
 

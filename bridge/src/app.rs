@@ -31,13 +31,13 @@ pub struct Connections<T> where T: Transport {
 }
 
 impl Connections<Http>  {
-	pub fn new_http(handle: &Handle, home: &str, foreign: &str) -> Result<Self, Error> {
+	pub fn new_http(handle: &Handle, home: &str, home_concurrent_connections: usize, foreign: &str, foreign_concurrent_connections: usize) -> Result<Self, Error> {
 
-	    let home = Http::with_event_loop(home, handle,1)
+	    let home = Http::with_event_loop(home, handle,home_concurrent_connections)
 			.map_err(ErrorKind::Web3)
 			.map_err(Error::from)
 			.chain_err(||"Cannot connect to home node rpc")?;
-		let foreign = Http::with_event_loop(foreign, handle, 1)
+		let foreign = Http::with_event_loop(foreign, handle, foreign_concurrent_connections)
 			.map_err(ErrorKind::Web3)
 			.map_err(Error::from)
 			.chain_err(||"Cannot connect to foreign node rpc")?;
@@ -64,7 +64,7 @@ impl App<Http> {
 		let home_url:String = format!("{}:{}", config.home.rpc_host, config.home.rpc_port);
 		let foreign_url:String = format!("{}:{}", config.foreign.rpc_host, config.foreign.rpc_port);
 
-		let connections = Connections::new_http(handle, home_url.as_ref(), foreign_url.as_ref())?;
+		let connections = Connections::new_http(handle, home_url.as_ref(), config.home.concurrent_http_requests, foreign_url.as_ref(), config.foreign.concurrent_http_requests)?;
 		let keystore = EthStore::open(Box::new(RootDiskDirectory::at(&config.keystore))).map_err(|e| ErrorKind::KeyStore(e))?;
 
 		let keystore = AccountProvider::new(Box::new(keystore), AccountProviderSettings {

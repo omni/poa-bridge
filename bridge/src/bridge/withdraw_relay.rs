@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Async, Future, Stream, stream::{Collect, iter_ok, IterOk, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use futures::future::{JoinAll, join_all, Join};
 use tokio_timer::Timeout;
 use web3::Transport;
@@ -15,6 +15,7 @@ use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
 use ethcore_transaction::{Transaction, Action};
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 use itertools::Itertools;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
@@ -72,7 +73,7 @@ pub enum WithdrawRelayState<T: Transport> {
 		block: u64,
 	},
 	RelayWithdraws {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	Yield(Option<u64>),
@@ -111,7 +112,7 @@ pub struct WithdrawRelay<T: Transport> {
 }
 
 impl<T: Transport> Stream for WithdrawRelay<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -240,7 +241,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 
 					info!("relaying {} withdraws", len);
 					WithdrawRelayState::RelayWithdraws {
-						future: iter_ok(relays).buffered(self.app.config.txs.withdraw_relay.concurrency).collect(),
+						future: futures_unordered(relays).collect(),
 						block,
 					}
 				},
@@ -254,7 +255,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						info!("waiting for signed withdraws to relay");
 						WithdrawRelayState::Wait
 					},
-					Some(block) => return Ok(Async::Ready(Some(block))),
+					Some(v) => return Ok(Some(BridgeChecked::WithdrawRelay(v)).into()),
 				}
 			};
 			self.state = next_state;
