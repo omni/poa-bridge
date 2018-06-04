@@ -18,9 +18,6 @@ rpc_port = 443
 default_gas_price = 5_000_000_000 # 5 GWEI
 
 [authorities]
-accounts = [
-	"0x006e27b6a72e1f34c626762f3c4761547aff1421",
-]
 required_signatures = 1
 
 [transactions]
