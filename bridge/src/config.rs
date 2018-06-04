@@ -15,7 +15,7 @@ const DEFAULT_POLL_INTERVAL: u64 = 1;
 const DEFAULT_CONFIRMATIONS: usize = 12;
 const DEFAULT_TIMEOUT: u64 = 3600;
 const DEFAULT_RPC_PORT: u16 = 8545;
-const DEFAULT_CONCURRENCY: usize = 100;
+pub(crate) const DEFAULT_CONCURRENCY: usize = 64;
 const DEFAULT_GAS_PRICE_SPEED: GasPriceSpeed = GasPriceSpeed::Fast;
 const DEFAULT_GAS_PRICE_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_GAS_PRICE_WEI: u64 = 15_000_000_000;
@@ -79,6 +79,7 @@ pub struct Node {
 	pub gas_price_speed: GasPriceSpeed,
 	pub gas_price_timeout: Duration,
 	pub default_gas_price: u64,
+	pub concurrent_http_requests: usize,
 }
 
 use std::sync::{Arc, RwLock};
@@ -118,6 +119,7 @@ impl Node {
 		};
 
 		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
+		let concurrent_http_requests = node.concurrent_http_requests.unwrap_or(DEFAULT_CONCURRENCY);
 
 		let result = Node {
 			account: node.account,
@@ -141,6 +143,7 @@ impl Node {
 			gas_price_speed,
 			gas_price_timeout,
 			default_gas_price,
+			concurrent_http_requests,
 		};
 
 		Ok(result)
@@ -185,7 +188,6 @@ impl Transactions {
 pub struct TransactionConfig {
 	pub gas: u64,
 	pub gas_price: u64,
-	pub concurrency: usize,
 }
 
 impl TransactionConfig {
@@ -193,7 +195,6 @@ impl TransactionConfig {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
 			gas_price: cfg.gas_price.unwrap_or_default(),
-			concurrency: cfg.concurrency.unwrap_or(DEFAULT_CONCURRENCY),
 		}
 	}
 }
@@ -277,6 +278,7 @@ mod load {
 		pub gas_price_speed: Option<String>,
 		pub gas_price_timeout: Option<u64>,
 		pub default_gas_price: Option<u64>,
+		pub concurrent_http_requests: Option<usize>,
 	}
 
 	#[derive(Deserialize)]
@@ -295,7 +297,6 @@ mod load {
 	pub struct TransactionConfig {
 		pub gas: Option<u64>,
 		pub gas_price: Option<u64>,
-		pub concurrency: Option<usize>,
 	}
 
 	#[derive(Deserialize)]
@@ -382,6 +383,7 @@ home_deploy = { gas = 20 }
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -400,6 +402,7 @@ home_deploy = { gas = 20 }
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			authorities: Authorities {
 				accounts: vec![
@@ -418,7 +421,6 @@ home_deploy = { gas = 20 }
 			expected.txs.home_deploy = TransactionConfig {
 				gas: 20,
 				gas_price: 0,
-				concurrency: DEFAULT_CONCURRENCY,
 			};
 		}
 
@@ -475,6 +477,7 @@ required_signatures = 2
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
@@ -493,6 +496,7 @@ required_signatures = 2
 				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
 				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
 				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
 			},
 			authorities: Authorities {
 				accounts: vec![

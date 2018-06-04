@@ -124,6 +124,7 @@ withdraw_confirm = { gas = 3000000 }
 - `home/foreign.gas_price_timeout` - the number of seconds to wait for an HTTP response from the gas price oracle before using the default gas price. Defaults to `10 seconds`.
 - `home/foreign.gas_price_speed` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
 - `home/foreign.default_gas_price` - the default gas price (in WEI) used in transactions with the home or foreign nodes. The `default_gas_price` is used when the Oracle cannot be reached. The default value is `15_000_000_000` WEI (ie. 15 GWEI).
+- `home/foreign.concurrent_http_requests` - the number of concurrent HTTP requests allowed in-flight (default: **64**)
 
 #### authorities options
 
@@ -133,11 +134,8 @@ withdraw_confirm = { gas = 3000000 }
 #### transaction options
 
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.deposit_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
-- `transaction.withdraw_confirm.concurrency` - how many concurrent transactions can be sent (default: **100**)
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
-- `transaction.withdraw_relay.concurrency` - how many concurrent transactions can be sent (default: **100**)
 
 ### Database file format
 

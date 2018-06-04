@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 use std::ops;
-use futures::{self, Future, Stream, stream::{Collect, IterOk, iter_ok, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use web3::Transport;
 use web3::types::{U256, H520, Address, Bytes, FilterBuilder};
 use api::{self, LogStream};
@@ -30,7 +30,7 @@ enum WithdrawConfirmState<T: Transport> {
 	Wait,
 	/// Confirming withdraws.
 	ConfirmWithdraws {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	/// All withdraws till given block has been confirmed.
@@ -139,7 +139,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 
 					info!("submitting {} signatures", len);
 					WithdrawConfirmState::ConfirmWithdraws {
-						future: iter_ok(confirmations).buffered(self.app.config.txs.withdraw_confirm.concurrency).collect(),
+						future: futures_unordered(confirmations).collect(),
 						block,
 					}
 				},

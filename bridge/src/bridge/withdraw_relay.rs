@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Future, Stream, stream::{Collect, iter_ok, IterOk, Buffered}, Poll};
+use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
 use futures::future::{JoinAll, join_all, Join};
 use tokio_timer::Timeout;
 use web3::Transport;
@@ -70,7 +70,7 @@ pub enum WithdrawRelayState<T: Transport> {
 		block: u64,
 	},
 	RelayWithdraws {
-		future: Collect<Buffered<IterOk<::std::vec::IntoIter<NonceCheck<T, SendRawTransaction<T>>>, Error>>>,
+		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
 		block: u64,
 	},
 	Yield(Option<u64>),
@@ -236,7 +236,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 
 					info!("relaying {} withdraws", len);
 					WithdrawRelayState::RelayWithdraws {
-						future: iter_ok(relays).buffered(self.app.config.txs.withdraw_relay.concurrency).collect(),
+						future: futures_unordered(relays).collect(),
 						block,
 					}
 				},

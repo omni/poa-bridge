@@ -143,7 +143,7 @@ mod tests {
 	use super::*;
 	use error::{Error, ErrorKind};
 	use futures::{Async, future::{err, ok, FutureResult}};
-	use config::{Node, NodeInfo};
+	use config::{Node, NodeInfo, DEFAULT_CONCURRENCY};
 	use tokio_timer::Timer;
 	use std::time::Duration;
 	use std::path::PathBuf;
@@ -176,6 +176,7 @@ mod tests {
 			gas_price_speed: GasPriceSpeed::from_str("fast").unwrap(),
 			gas_price_timeout: Duration::from_secs(5),
 			default_gas_price: 15_000_000_000,
+			concurrent_http_requests: DEFAULT_CONCURRENCY,
 		};
 		let timer = Timer::default();
 		let mut stream = GasPriceStream::new_with_retriever(&node, ErroredRequest, &timer);
@@ -218,6 +219,7 @@ mod tests {
 			gas_price_speed: GasPriceSpeed::from_str("fast").unwrap(),
 			gas_price_timeout: Duration::from_secs(5),
 			default_gas_price: 15_000_000_000,
+			concurrent_http_requests: DEFAULT_CONCURRENCY,
 		};
 		let timer = Timer::default();
 		let mut stream = GasPriceStream::new_with_retriever(&node, BadJson, &timer);
@@ -260,6 +262,7 @@ mod tests {
 			gas_price_speed: GasPriceSpeed::from_str("fast").unwrap(),
 			gas_price_timeout: Duration::from_secs(5),
 			default_gas_price: 15_000_000_000,
+			concurrent_http_requests: DEFAULT_CONCURRENCY,
 		};
 		let timer = Timer::default();
 		let mut stream = GasPriceStream::new_with_retriever(&node, UnexpectedJson, &timer);
@@ -301,6 +304,7 @@ mod tests {
 			gas_price_speed: GasPriceSpeed::from_str("fast").unwrap(),
 			gas_price_timeout: Duration::from_secs(5),
 			default_gas_price: 15_000_000_000,
+			concurrent_http_requests: DEFAULT_CONCURRENCY,
 		};
 		let timer = Timer::default();
 		let mut stream = GasPriceStream::new_with_retriever(&node, NonObjectJson, &timer);
@@ -342,6 +346,7 @@ mod tests {
 			gas_price_speed: GasPriceSpeed::from_str("fast").unwrap(),
 			gas_price_timeout: Duration::from_secs(5),
 			default_gas_price: 15_000_000_000,
+			concurrent_http_requests: DEFAULT_CONCURRENCY,
 		};
 		let timer = Timer::default();
 		let mut stream = GasPriceStream::new_with_retriever(&node, CorrectJson, &timer);
