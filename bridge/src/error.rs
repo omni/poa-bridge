@@ -61,6 +61,10 @@ error_chain! {
 		OtherError(error: String) {
 		    description("other error")
 		    display("{}", error)
+        }
+		ConfigError(err: String) {
+		    description("config error")
+		    display("{}", err)
 		}
 	}
 }

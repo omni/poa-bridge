@@ -163,6 +163,7 @@ fn test_basic_deposit_then_withdraw() {
 		.env("RUST_LOG", "info")
 		.arg("--config").arg("bridge_config.toml")
 		.arg("--database").arg("tmp/bridge1_db.txt")
+		.arg("--allow-insecure-rpc-endpoints")
 		.spawn()
 		.expect("failed to spawn bridge process");
 

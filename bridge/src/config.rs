@@ -8,7 +8,7 @@ use rustc_hex::FromHex;
 use web3::types::Address;
 #[cfg(feature = "deploy")]
 use web3::types::Bytes;
-use error::{ResultExt, Error};
+use error::{ResultExt, Error, ErrorKind};
 use {toml};
 
 const DEFAULT_POLL_INTERVAL: u64 = 1;
@@ -33,22 +33,22 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, Error> {
+	pub fn load<P: AsRef<Path>>(path: P, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
 		let mut file = fs::File::open(path).chain_err(|| "Cannot open config")?;
 		let mut buffer = String::new();
 		file.read_to_string(&mut buffer).expect("TODO");
-		Self::load_from_str(&buffer)
+		Self::load_from_str(&buffer, allow_insecure_rpc_endpoints)
 	}
 
-	fn load_from_str(s: &str) -> Result<Config, Error> {
+	fn load_from_str(s: &str, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
 		let config: load::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
-		Config::from_load_struct(config)
+		Config::from_load_struct(config, allow_insecure_rpc_endpoints)
 	}
 
-	fn from_load_struct(config: load::Config) -> Result<Config, Error> {
+	fn from_load_struct(config: load::Config, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
 		let result = Config {
-			home: Node::from_load_struct(config.home)?,
-			foreign: Node::from_load_struct(config.foreign)?,
+			home: Node::from_load_struct(config.home, allow_insecure_rpc_endpoints)?,
+			foreign: Node::from_load_struct(config.foreign, allow_insecure_rpc_endpoints)?,
 			authorities: Authorities {
 				#[cfg(feature = "deploy")]
 				accounts: config.authorities.accounts,
@@ -106,7 +106,7 @@ impl PartialEq for NodeInfo {
 }
 
 impl Node {
-	fn from_load_struct(node: load::Node) -> Result<Node, Error> {
+	fn from_load_struct(node: load::Node, allow_insecure_rpc_endpoints: bool) -> Result<Node, Error> {
 		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
 
 		let gas_price_speed = match node.gas_price_speed {
@@ -122,6 +122,16 @@ impl Node {
 		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
 		let concurrent_http_requests = node.concurrent_http_requests.unwrap_or(DEFAULT_CONCURRENCY);
 
+		let rpc_host = node.rpc_host.unwrap();
+
+		if !rpc_host.starts_with("https://") {
+			if !allow_insecure_rpc_endpoints {
+				return Err(ErrorKind::ConfigError(format!("RPC endpoints must use TLS, {} doesn't", rpc_host)).into());
+			} else {
+				warn!("RPC endpoints must use TLS, {} doesn't", rpc_host);
+			}
+		}
+
 		let result = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
@@ -136,7 +146,7 @@ impl Node {
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
-			rpc_host: node.rpc_host.unwrap(),
+			rpc_host,
 			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
 			password: node.password,
 			info: Default::default(),
@@ -398,7 +408,7 @@ required_signatures = 2
 			keystore: "/keys/".into(),
 		};
 
-		let config = Config::load_from_str(toml).unwrap();
+		let config = Config::load_from_str(toml, true).unwrap();
 		assert_eq!(expected, config);
 	}
 
@@ -461,7 +471,7 @@ required_signatures = 2
 			keystore: "/keys/".into(),
 		};
 
-		let config = Config::load_from_str(toml).unwrap();
+		let config = Config::load_from_str(toml, true).unwrap();
 		assert_eq!(expected, config);
 	}
 }

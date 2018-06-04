@@ -194,6 +194,7 @@ fn test_insufficient_funds() {
 		.env("RUST_LOG", "info")
 		.arg("--config").arg("bridge_config_gas_price.toml")
 		.arg("--database").arg("tmp/bridge1_db.txt")
+		.arg("--allow-insecure-rpc-endpoints")
 		.spawn()
 		.expect("failed to spawn bridge process");
 
