@@ -13,6 +13,7 @@ use message_to_mainnet::{MessageToMainnet, MESSAGE_LENGTH};
 use ethcore_transaction::{Transaction, Action};
 use itertools::Itertools;
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 
 fn withdraws_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
 	let filter = foreign.events().withdraw().create_filter();
@@ -68,7 +69,7 @@ pub struct WithdrawConfirm<T: Transport> {
 }
 
 impl<T: Transport> Stream for WithdrawConfirm<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -153,7 +154,7 @@ impl<T: Transport> Stream for WithdrawConfirm<T> {
 						info!("waiting for new withdraws that should get signed");
 						WithdrawConfirmState::Wait
 					},
-					some => return Ok(some.into()),
+					Some(v) => return Ok(Some(BridgeChecked::WithdrawConfirm(v)).into()),
 				}
 			};
 			self.state = next_state;

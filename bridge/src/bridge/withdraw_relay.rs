@@ -15,6 +15,7 @@ use message_to_mainnet::MessageToMainnet;
 use signature::Signature;
 use ethcore_transaction::{Transaction, Action};
 use super::nonce::{NonceCheck, SendRawTransaction};
+use super::BridgeChecked;
 use itertools::Itertools;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
@@ -109,7 +110,7 @@ pub struct WithdrawRelay<T: Transport> {
 }
 
 impl<T: Transport> Stream for WithdrawRelay<T> {
-	type Item = u64;
+	type Item = BridgeChecked;
 	type Error = Error;
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -250,7 +251,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						info!("waiting for signed withdraws to relay");
 						WithdrawRelayState::Wait
 					},
-					some => return Ok(some.into()),
+					Some(v) => return Ok(Some(BridgeChecked::WithdrawRelay(v)).into()),
 				}
 			};
 			self.state = next_state;
