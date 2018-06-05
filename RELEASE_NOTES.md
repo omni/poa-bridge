@@ -1,3 +1,20 @@
+# 0.3.0
+
+In this release, dynamic gas pricing has been added
+(#85), allowing to fetch gas price from an external
+oracle.
+
+This release addresses some major performance issues
+with how RPC requests were coordinated. With this release,
+RPC requests are finally properly parallelized, leading
+to much better overall performance (#94)
+
+It also addresses some potential loss of database updates
+under certain conditions (#95)
+
+Along with this, some old configuration options were
+deprecated.
+
 # 0.2.1
 
 This release contains a number of bugfixes and a change in handling gas price.
