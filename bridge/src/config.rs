@@ -176,8 +176,8 @@ pub struct Transactions {
 	pub home_deploy: TransactionConfig,
 	#[cfg(feature = "deploy")]
 	pub foreign_deploy: TransactionConfig,
+	pub deposit_confirm: TransactionConfig,
 	pub deposit_relay: TransactionConfig,
-	pub withdraw_confirm: TransactionConfig,
 	pub withdraw_relay: TransactionConfig,
 }
 
@@ -188,8 +188,8 @@ impl Transactions {
 			home_deploy: cfg.home_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			#[cfg(feature = "deploy")]
 			foreign_deploy: cfg.foreign_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
+			deposit_confirm: cfg.deposit_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			deposit_relay: cfg.deposit_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
-			withdraw_confirm: cfg.withdraw_confirm.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			withdraw_relay: cfg.withdraw_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 		}
 	}
@@ -198,14 +198,12 @@ impl Transactions {
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct TransactionConfig {
 	pub gas: u64,
-	pub gas_price: u64,
 }
 
 impl TransactionConfig {
 	fn from_load_struct(cfg: load::TransactionConfig) -> Self {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
-			gas_price: cfg.gas_price.unwrap_or_default(),
 		}
 	}
 }
@@ -302,8 +300,8 @@ mod load {
 		pub home_deploy: Option<TransactionConfig>,
 		#[cfg(feature = "deploy")]
 		pub foreign_deploy: Option<TransactionConfig>,
+		pub deposit_confirm: Option<TransactionConfig>,
 		pub deposit_relay: Option<TransactionConfig>,
-		pub withdraw_confirm: Option<TransactionConfig>,
 		pub withdraw_relay: Option<TransactionConfig>,
 	}
 
@@ -311,7 +309,6 @@ mod load {
 	#[serde(deny_unknown_fields)]
 	pub struct TransactionConfig {
 		pub gas: Option<u64>,
-		pub gas_price: Option<u64>,
 	}
 
 	#[derive(Deserialize)]
@@ -338,8 +335,8 @@ mod tests {
 	#[cfg(feature = "deploy")]
 	use super::ContractConfig;
 	#[cfg(feature = "deploy")]
-    use super::TransactionConfig;
-	use super::{DEFAULT_TIMEOUT, DEFAULT_CONCURRENCY, DEFAULT_GAS_PRICE_SPEED, DEFAULT_GAS_PRICE_TIMEOUT_SECS, DEFAULT_GAS_PRICE_WEI};
+	use super::TransactionConfig;
+	use super::{DEFAULT_TIMEOUT, DEFAULT_GAS_PRICE_SPEED, DEFAULT_GAS_PRICE_TIMEOUT_SECS, DEFAULT_GAS_PRICE_WEI};
 
 	#[test]
 	fn load_full_setup_from_str() {

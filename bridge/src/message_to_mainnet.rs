@@ -1,7 +1,7 @@
 use ethereum_types::{Address, U256, H256};
-use contracts::foreign::events::Withdraw;
+use contracts::{foreign::events::Withdraw, home::events::Deposit};
 use web3::types::Log;
-use ethabi;
+use ethabi::{self, RawLog};
 use error::Error;
 
 /// the message that is relayed from side to main.
@@ -12,25 +12,27 @@ pub struct MessageToMainnet {
 	pub recipient: Address,
 	pub value: U256,
 	pub sidenet_transaction_hash: H256,
-	pub mainnet_gas_price: U256,
+	// pub mainnet_gas_price: U256,
 }
 
 /// length of a `MessageToMainnet.to_bytes()` in bytes
-pub const MESSAGE_LENGTH: usize = 116;
+// pub const MESSAGE_LENGTH: usize = 116;
+pub const MESSAGE_LENGTH: usize = 84;
 
 impl MessageToMainnet {
 	/// parses message from a byte slice
 	pub fn from_bytes(bytes: &[u8]) -> Self {
 		assert_eq!(bytes.len(), MESSAGE_LENGTH);
 
-                Self {
+		Self {
 			recipient: bytes[0..20].into(),
 			value: (&bytes[20..52]).into(),
 			sidenet_transaction_hash: bytes[52..84].into(),
-			mainnet_gas_price: (&bytes[84..MESSAGE_LENGTH]).into(),
+			// mainnet_gas_price: (&bytes[84..MESSAGE_LENGTH]).into(),
 		}
 	}
 
+	/*
 	/// construct a message from a `Withdraw` event that was logged on `foreign`
 	pub fn from_log(web3_log: Log) -> Result<Self, Error> {
 		let ethabi_raw_log = ethabi::RawLog {
@@ -46,6 +48,23 @@ impl MessageToMainnet {
 			mainnet_gas_price: withdraw_log.home_gas_price,
 		})
 	}
+    */
+
+	pub fn from_home_deposit_log(log: Log) -> Result<Self, Error> {
+		let raw_log = RawLog { topics: log.topics, data: log.data.0 };
+		let parsed = Deposit::default().parse_log(raw_log)?;
+		
+		let tx_hash = parsed.transaction_hash
+			.ok_or_else(|| "`log` must be mined and contain `transaction_hash`")?;
+		
+		let msg = MessageToMainnet {
+			recipient: parsed.recipient,
+			value: parsed.value,
+			sidenet_transaction_hash: tx_hash,
+		};
+
+		Ok(msg)
+	}
 
 	/// serializes message to a byte vector.
 	/// mainly used to construct the message byte vector that is then signed
@@ -55,7 +74,7 @@ impl MessageToMainnet {
 		result[0..20].copy_from_slice(&self.recipient.0[..]);
 		result[20..52].copy_from_slice(&H256::from(self.value));
 		result[52..84].copy_from_slice(&self.sidenet_transaction_hash.0[..]);
-		result[84..MESSAGE_LENGTH].copy_from_slice(&H256::from(self.mainnet_gas_price));
+		// result[84..MESSAGE_LENGTH].copy_from_slice(&H256::from(self.mainnet_gas_price));
 		return result;
 	}
 
@@ -75,7 +94,7 @@ mod test {
 			recipient_raw: Vec<u8>,
 			value_raw: u64,
 			sidenet_transaction_hash_raw: Vec<u8>,
-			mainnet_gas_price_raw: u64
+			// mainnet_gas_price_raw: u64
 		) -> TestResult {
 			if recipient_raw.len() != 20 || sidenet_transaction_hash_raw.len() != 32 {
 				return TestResult::discard();
@@ -84,13 +103,13 @@ mod test {
 			let recipient: Address = recipient_raw.as_slice().into();
 			let value: U256 = value_raw.into();
 			let sidenet_transaction_hash: H256 = sidenet_transaction_hash_raw.as_slice().into();
-			let mainnet_gas_price: U256 = mainnet_gas_price_raw.into();
+			// let mainnet_gas_price: U256 = mainnet_gas_price_raw.into();
 
 			let message = MessageToMainnet {
 				recipient,
 				value,
 				sidenet_transaction_hash,
-				mainnet_gas_price
+				// mainnet_gas_price
 			};
 
 			let bytes = message.to_bytes();

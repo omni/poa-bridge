@@ -15,13 +15,13 @@ pub struct Database {
 	/// Number of block at which home contract has been deployed.
 	pub home_deploy: Option<u64>,
 	/// Number of block at which foreign contract has been deployed.
-	pub foreign_deploy: Option<u64>,
+	pub foreign_deploy: Option<u64>, 
 	/// Number of last block which has been checked for deposit relays.
 	pub checked_deposit_relay: u64,
+	/// Number of last block which has been checked for deposit confirms.    
+	pub checked_deposit_confirm: u64,
 	/// Number of last block which has been checked for withdraw relays.
 	pub checked_withdraw_relay: u64,
-	/// Number of last block which has been checked for withdraw confirms.
-	pub checked_withdraw_confirm: u64,
 }
 
 impl str::FromStr for Database {
@@ -69,8 +69,8 @@ foreign_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
 home_deploy = 100
 foreign_deploy = 101
 checked_deposit_relay = 120
+checked_deposit_confirm = 121
 checked_withdraw_relay = 121
-checked_withdraw_confirm = 121
 "#;
 
 		let expected = Database {
@@ -79,8 +79,8 @@ checked_withdraw_confirm = 121
 			home_deploy: Some(100),
 			foreign_deploy: Some(101),
 			checked_deposit_relay: 120,
+			checked_deposit_confirm: 121,
 			checked_withdraw_relay: 121,
-			checked_withdraw_confirm: 121,
 		};
 
 		let database = toml.parse().unwrap();

@@ -125,7 +125,8 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						home_deploy: Some(main_receipt.block_number.low_u64()),
 						foreign_deploy: Some(test_receipt.block_number.low_u64()),
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
-						checked_withdraw_relay: test_receipt.block_number.low_u64(),
+						checked_deposit_confirm: main_receipt.block_number.low_u64(),
+                        checked_withdraw_relay: test_receipt.block_number.low_u64(),
 						checked_withdraw_confirm: test_receipt.block_number.low_u64(),
 					};
 					return Ok(Deployed::New(database).into())

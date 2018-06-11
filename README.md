@@ -58,7 +58,6 @@ Bridge forces TLS for RPC connections by default. However, in some limited scena
 this might be undesirable. In this case, you can use `--allow-insecure-rpc-endpoints` option to allow non-TLS
 endpoints to be used. Ensure, however, that this option is not going to be used in production.
 
-
 #### Exit Status Codes
 
 | Code | Meaning              |
@@ -102,9 +101,9 @@ password = "foreign_password.txt"
 required_signatures = 2
 
 [transactions]
+deposit_confirm = { gas = 3000000 }
 deposit_relay = { gas = 3000000 }
 withdraw_relay = { gas = 3000000 }
-withdraw_confirm = { gas = 3000000 }
 ```
 
 #### Options
@@ -133,8 +132,8 @@ withdraw_confirm = { gas = 3000000 }
 
 #### transaction options
 
+- `transaction.deposit_confirm.gas` - specify how much gas should be consumed for each call to the Home contract's `submitSignature()` function
 - `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
 - `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
 
 ### Database file format
@@ -142,15 +141,15 @@ withdraw_confirm = { gas = 3000000 }
 ```toml
 home_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
 foreign_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
+checked_deposit_confirm = 120
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
-checked_withdraw_confirm = 121
 ```
 
 **all fields are required**
 
 - `home_contract_address` - address of the bridge contract on home chain
 - `foreign_contract_address` - address of the bridge contract on foreign chain
+- `checked_deposit_confirm` - number of the last block for which an authority has confirmed deposit
 - `checked_deposit_relay` - number of the last block for which an authority has relayed deposits to the foreign
 - `checked_withdraw_relay` - number of the last block for which an authority has relayed withdraws to the home
-- `checked_withdraw_confirm` - number of the last block for which an authority has confirmed withdraw

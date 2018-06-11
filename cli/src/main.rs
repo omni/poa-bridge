@@ -126,7 +126,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		.and_then(|d| d.argv(command).deserialize()).map_err(|e| e.to_string())?;
 
 	if args.flag_version {
-		return Ok(version!().into())
+		return Ok(version!().into());
 	}
 
 	info!(target: "bridge", "Loading config");
