@@ -87,15 +87,16 @@ rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
 password = "home_password.txt"
-gas_price_oracle_url = "https://gasprice.poa.network"
-gas_price_speed = "instant"
-default_gas_price = 10_000_000_000 # 10 GWEI
+default_gas_price = 1_000_000_000 # 1 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
 rpc_host = "http://localhost"
 rpc_port = 9545
 required_confirmations = 0
+gas_price_oracle_url = "https://gasprice.poa.network"
+gas_price_speed = "instant"
+default_gas_price = 10_000_000_000 # 10 GWEI
 password = "foreign_password.txt"
 
 [authorities]
