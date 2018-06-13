@@ -100,11 +100,6 @@ password = "foreign_password.txt"
 
 [authorities]
 required_signatures = 2
-
-[transactions]
-deposit_relay = { gas = 3000000 }
-withdraw_relay = { gas = 3000000 }
-withdraw_confirm = { gas = 3000000 }
 ```
 
 #### Options
@@ -133,9 +128,9 @@ withdraw_confirm = { gas = 3000000 }
 
 #### transaction options
 
-- `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay
-- `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm
-- `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay
+- `transaction.deposit_relay.gas` - specify how much gas should be consumed by deposit relay (optional, default: computed with `eth.estimateGas`)
+- `transaction.withdraw_confirm.gas` - specify how much gas should be consumed by withdraw confirm (optional, default: computed with `eth.estimateGas`)
+- `transaction.withdraw_relay.gas` - specify how much gas should be consumed by withdraw relay (optional, default: computed with `eth.estimateGas`)
 
 ### Database file format
 
