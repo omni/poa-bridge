@@ -18,8 +18,8 @@ matrix:
     - export PATH=${HOME}/bin:${PATH}
     - cd integration-tests
     script:
-    - env BACKTRACE=1 cd bridge && cargo test
-    - env BACKTRACE=1 cd integration-tests && cargo test -- --test-threads=1 --nocapture
+    - env BACKTRACE=1 && cd bridge && cargo test
+    - env BACKTRACE=1 && cd integration-tests && cargo test -- --test-threads=1 --nocapture
     - make
     - cp target/releases/bridge bridge-linux-x86_64
     before_deploy: git tag `git describe --always --tags`
