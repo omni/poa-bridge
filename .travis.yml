@@ -19,8 +19,8 @@ matrix:
     - cp parity ${HOME}/bin
     - export PATH=${HOME}/bin:${PATH}
     script:
-    - env BACKTRACE=1 && cd bridge && cargo test
-    - env BACKTRACE=1 && cd integration-tests && cargo test -- --test-threads=1 --nocapture
+    - cd bridge && env BACKTRACE=1 && cargo test && cd ..
+    - cd integration-tests && env BACKTRACE=1 cargo test -- --test-threads=1 --nocapture && cd ..
     - make
     - cp target/releases/bridge bridge-linux-x86_64
     before_deploy: git tag `git describe --always --tags`
