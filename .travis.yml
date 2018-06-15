@@ -13,7 +13,7 @@ matrix:
     before_script:
     - sudo add-apt-repository ppa:ethereum/ethereum -y
     - sudo apt-get update -y
-    - sudo apt-get install solc -y
+    - sudo apt-get install solc libudev-dev -y
     - wget https://parity-downloads-mirror.parity.io/v1.10.6/x86_64-unknown-linux-gnu/parity
     - chmod +x parity
     - cp parity ${HOME}/bin
