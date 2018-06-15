@@ -2,65 +2,31 @@ sudo: false
 branches:
   only:
   - master
-
 matrix:
   include:
-    - language: rust
-      rust: stable
-      cache: cargo
-      fast_finish: false
-      before_script:
-        - sudo add-apt-repository ppa:ethereum/ethereum -y
-        - sudo apt-get update -y
-        - sudo apt-get install solc -y
-        - wget https://parity-downloads-mirror.parity.io/v1.8.6/x86_64-unknown-linux-gnu/parity
-        - chmod +x parity
-        - cp parity ${HOME}/bin
-        - export PATH=${HOME}/bin:${PATH}
-        - cd integration-tests
-      script:
-        - env BACKTRACE=1 cargo test --all -- --nocapture
-    - language: rust
-      rust: beta
-      cache: cargo
-      fast_finish: false
-      before_script:
-        - sudo add-apt-repository ppa:ethereum/ethereum -y
-        - sudo apt-get update -y
-        - sudo apt-get install solc -y
-        - wget https://parity-downloads-mirror.parity.io/v1.8.6/x86_64-unknown-linux-gnu/parity
-        - chmod +x parity
-        - cp parity ${HOME}/bin
-        - export PATH=${HOME}/bin:${PATH}
-        - cd integration-tests
-      script:
-        - env BACKTRACE=1 cargo test --all -- --nocapture
-    - language: rust
-      rust: nightly
-      cache: cargo
-      fast_finish: false
-      before_script:
-        - sudo add-apt-repository ppa:ethereum/ethereum -y
-        - sudo apt-get update -y
-        - sudo apt-get install solc -y
-        - wget https://parity-downloads-mirror.parity.io/v1.8.6/x86_64-unknown-linux-gnu/parity
-        - chmod +x parity
-        - cp parity ${HOME}/bin
-        - export PATH=${HOME}/bin:${PATH}
-        - cd integration-tests
-      script:
-        - env BACKTRACE=1 cargo test --all -- --nocapture
-    - language: node_js
-      node_js: node
-      cache: yarn
-      before_script:
-        - cd truffle
-        - yarn install
-      script:
-        - yarn run ci
-      after_script:
-        - cat coverage/lcov.info | yarn run coveralls
-
-env:
-  global:
-  - secure: zdEco0QAPik4peDfWuLHHex67LVe3E7c5VJNx+7ygH1pt+mzgobKo8jgT7WuH70xPRA717txNaj/zYGj5EuBKLn+Tkw3feDjrISYRD7ZOXFm1urv53KDx8xh2QJld2fHOc4UWcQ1qqBOWWOR9donuOaRfdDSOpWjLhl14heMgsW3o5Q/V4HN//VPHQctzaCq6r5eerx82B6SSNQ7+42rESu37N0Plv8JtCswihCuoUsMuzbXGwGzafR8IVf5WJPB1WM1KpjdWHgZCCgIfdH6C9fJ1P4fd2Z7EQJ0PYwxRntPlONzUr5khGPldXn7Czwoq9Go4eOZaTwHizprI/KCXBXASXQ/Z7EsU2AKl90qvUHLDB9i4aa/eDrkzQGPQ+dkjNckdQaaucIKX/r8VDm7ZVefkLOgbzc1plE6/TXslAS/n0OoXUXydzueyqi8oeVEagt/nSYaR4t/8C10eC/6gjVF6X6mpgM6/p8eVrN8bltMa0KSDfRvhi3kU1Nmc5b3CWg+neWYYFPHak3GyFwh3uRC0LJroO+j+dkQZiEpSsMgthx69RBDjYvoi3T5FGwt5s/FfnOtcHM65M9sGubMW4DsVaI7OHt7FUnp5dlqxk6NGT68R/E1ZeCwr7Y4QCXr4agew5OpxTni4MK7aCVnmAtabNVLI4wKdCy2ULJWLsE=
+  - language: rust
+    rust: stable
+    cache: cargo
+    fast_finish: false
+    before_script:
+    - sudo add-apt-repository ppa:ethereum/ethereum -y
+    - sudo apt-get update -y
+    - sudo apt-get install solc -y
+    - wget https://parity-downloads-mirror.parity.io/v1.10.6/x86_64-unknown-linux-gnu/parity
+    - chmod +x parity
+    - cp parity ${HOME}/bin
+    - export PATH=${HOME}/bin:${PATH}
+    - cd integration-tests
+    script:
+    - env BACKTRACE=1 cd bridge && cargo test
+    - env BACKTRACE=1 cd integration-tests && cargo test -- --test-threads=1 --nocapture
+    - make
+    - cp target/releases/bridge bridge-linux-x86_64
+    before_deploy: git tag `git describe --always --tags`
+    deploy:
+      provider: releases
+      api_key:
+        secure: jgCih2ejsRvdIYLFCdNn7HGNykQji+q20EAqFbK0cVXTpuQwWlLZM/TPXnkm7Rm8bG8cs+ccw2z/hnxLffpPKqzyma/agbpSW911ReI2cxmslmw4/aKY2wk9Q714C6xZ5r7JmEHV43fdQqOUUe+w3EB4StWy/6hZWdjeLHijyOtn0wAbUSYXVt/D9nNYXmSF1TQ0AogDkdz31kCwmzi7RFwlFDhg22IK3CJmeBPonti8tCCpslKqEh7ni+q/6KKzdatC0DoQshjwQTRfTDIWO+MNEPmg+7yEQC6w/vI7VXsr0NIgwqRfhjMvHqVvzUaORzBi48Hj8Y6dWFTu5a8v7dCYzuEtBchdzpg4EwRO0OxoIC+RiHooIF5OSKPjZsJhynRMe0Q4ugWf6Ytzi2/cIsdqSX3fbIkZHnEtSjxZo4GdCwb7cT2BpYSCwZRL6NkHMhUtfYeUGkCI4Cmwwz8i3jKU2B9Q/pBJgD4d8wewb/Vdb9RqjVLP8Ogjv/b1mJydr+PPs1FNjX4rXIwFrU7HhHoIQoRmkWjEW305rixwxHv3ka60rglLDPbn+Fzfv5AeFeVJoInijx2qCnUBPpU1VIa3d6hWf/460ltUTvx5F1HXG/RTZm5aWbF2Rn/gQPHpbGWT+v2isbNLqotSP83YMWA09EXTgc4uYHfO/xp4BhI=
+      file: bridge-linux-x86_64
+    on:
+      repo: poanetwork/poa-bridge
