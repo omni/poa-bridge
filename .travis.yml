@@ -18,7 +18,6 @@ matrix:
     - sudo snap install parity --stable
     - export PATH=/snap/bin:${PATH}
     script:
-    - cd bridge && env BACKTRACE=1 && cargo test --release && cd ..
     - cd integration-tests && env BACKTRACE=1 cargo test --release -- --test-threads=1 --nocapture && cd ..
     - make
     - cp target/release/bridge bridge-linux-x86_64
