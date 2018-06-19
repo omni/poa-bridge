@@ -30,7 +30,7 @@ and they can convert them back as well.
 
 ![withdraw](./res/withdraw.png)
 
-### How to build 
+### How to build
 
 Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
 
@@ -83,6 +83,7 @@ keystore = "/path/to/keystore"
 
 [home]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
 rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
@@ -91,6 +92,7 @@ default_gas_price = 1_000_000_000 # 1 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
 rpc_host = "http://localhost"
 rpc_port = 9545
 required_confirmations = 0
@@ -110,11 +112,12 @@ withdraw_confirm = { gas = 3000000 }
 
 #### Options
 
-- `keystore` - path to a keystore directory with JSON keys  
+- `keystore` - path to a keystore directory with JSON keys
 
 #### home/foreign options
 
 - `home/foreign.account` - authority address on the home (**required**)
+- `home/foreign.contract_address` - The address of the bridge contract on home/foreign chain. (**required** unless the configuration is being used in a deploy build [FIXME: clarify this description]).
 - `home/foreign.rpc_host` - RPC host (**required**)
 - `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
 - `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)
@@ -141,8 +144,6 @@ withdraw_confirm = { gas = 3000000 }
 ### Database file format
 
 ```toml
-home_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
-foreign_contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
 checked_deposit_relay = 120
 checked_withdraw_relay = 121
 checked_withdraw_confirm = 121
@@ -150,8 +151,6 @@ checked_withdraw_confirm = 121
 
 **all fields are required**
 
-- `home_contract_address` - address of the bridge contract on home chain
-- `foreign_contract_address` - address of the bridge contract on foreign chain
 - `checked_deposit_relay` - number of the last block for which an authority has relayed deposits to the foreign
 - `checked_withdraw_relay` - number of the last block for which an authority has relayed withdraws to the home
 - `checked_withdraw_confirm` - number of the last block for which an authority has confirmed withdraw

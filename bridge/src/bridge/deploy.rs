@@ -22,6 +22,7 @@ pub enum Deployed {
 	Existing(Database),
 }
 
+// FIXME: Needs documentation. What do these states signify?
 #[cfg(feature = "deploy")]
 enum DeployState<T: Transport + Clone> {
 	CheckIfNeeded,
@@ -64,61 +65,72 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 	fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
 		loop {
 			let _next_state = match self.state {
-				DeployState::CheckIfNeeded => match Database::load(&self.app.database_path).map_err(ErrorKind::from) {
-					Ok(database) => return Ok(Deployed::Existing(database).into()),
-					Err(ErrorKind::MissingFile(_e)) => {
-						#[cfg(feature = "deploy")] {
-							println!("deploy");
-							let main_data = self.app.home_bridge.constructor(
-								self.app.config.home.contract.bin.clone().0,
-								self.app.config.authorities.required_signatures,
-								self.app.config.authorities.accounts.clone(),
-								self.app.config.estimated_gas_cost_of_withdraw
-							);
-							let test_data = self.app.foreign_bridge.constructor(
-								self.app.config.foreign.contract.bin.clone().0,
-								self.app.config.authorities.required_signatures,
-								self.app.config.authorities.accounts.clone(),
-								self.app.config.estimated_gas_cost_of_withdraw
-							);
+				DeployState::CheckIfNeeded => {
+					let db = Database::load_user_defined(
+							&self.app.database_path,
+							self.app.config.home.contract_address.expect("Home contract \
+								address must be specified within config toml."),
+							self.app.config.foreign.contract_address.expect("Foreign contract \
+								address must be specified within config toml."))
+						.map_err(ErrorKind::from);
 
-							let main_tx = Transaction {
-								nonce: U256::zero(),
-								gas_price: self.app.config.txs.home_deploy.gas_price.into(),
-								gas: self.app.config.txs.home_deploy.gas.into(),
-								action: Action::Create,
-								value: U256::zero(),
-								data: main_data.into(),
-							};
+					match db {
+						Ok(database) => return Ok(Deployed::Existing(database).into()),
+						Err(ErrorKind::MissingFile(_e)) => {
+							#[cfg(feature = "deploy")] {
+								println!("deploy");
+								let main_data = self.app.home_bridge.constructor(
+									self.app.config.home.contract.bin.clone().0,
+									self.app.config.authorities.required_signatures,
+									self.app.config.authorities.accounts.clone(),
+									self.app.config.estimated_gas_cost_of_withdraw
+								);
+								let test_data = self.app.foreign_bridge.constructor(
+									self.app.config.foreign.contract.bin.clone().0,
+									self.app.config.authorities.required_signatures,
+									self.app.config.authorities.accounts.clone(),
+									self.app.config.estimated_gas_cost_of_withdraw
+								);
 
-							let test_tx = Transaction {
-								nonce: U256::zero(),
-								gas_price: self.app.config.txs.foreign_deploy.gas_price.into(),
-								gas: self.app.config.txs.foreign_deploy.gas.into(),
-								action: Action::Create,
-								value: U256::zero(),
-								data: test_data.into(),
-							};
+								let main_tx = Transaction {
+									nonce: U256::zero(),
+									gas_price: self.app.config.txs.home_deploy.gas_price.into(),
+									gas: self.app.config.txs.home_deploy.gas.into(),
+									action: Action::Create,
+									value: U256::zero(),
+									data: main_data.into(),
+								};
 
-							let main_future = api::send_transaction_with_nonce(self.app.connections.home.clone(), self.app.clone(),
-																			   self.app.config.home.clone(), main_tx, self.home_chain_id,
-																			   TransactionWithConfirmation(self.app.connections.home.clone(), self.app.config.home.poll_interval, self.app.config.home.required_confirmations));
+								let test_tx = Transaction {
+									nonce: U256::zero(),
+									gas_price: self.app.config.txs.foreign_deploy.gas_price.into(),
+									gas: self.app.config.txs.foreign_deploy.gas.into(),
+									action: Action::Create,
+									value: U256::zero(),
+									data: test_data.into(),
+								};
 
-							let test_future = api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(),
-																			   self.app.config.foreign.clone(), test_tx, self.foreign_chain_id,
-																			   TransactionWithConfirmation(self.app.connections.foreign.clone(), self.app.config.foreign.poll_interval, self.app.config.foreign.required_confirmations));
+								let main_future = api::send_transaction_with_nonce(self.app.connections.home.clone(), self.app.clone(),
+																				   self.app.config.home.clone(), main_tx, self.home_chain_id,
+																				   TransactionWithConfirmation(self.app.connections.home.clone(), self.app.config.home.poll_interval, self.app.config.home.required_confirmations));
 
-							DeployState::Deploying(main_future.join(test_future))
-						}
-						#[cfg(not(feature = "deploy"))] {
-							return Err(ErrorKind::MissingFile(_e).into())
-						}
-					},
-					Err(err) => return Err(err.into()),
+								let test_future = api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(),
+																				   self.app.config.foreign.clone(), test_tx, self.foreign_chain_id,
+																				   TransactionWithConfirmation(self.app.connections.foreign.clone(), self.app.config.foreign.poll_interval, self.app.config.foreign.required_confirmations));
+
+								DeployState::Deploying(main_future.join(test_future))
+							}
+							#[cfg(not(feature = "deploy"))] {
+								return Err(ErrorKind::MissingFile(_e).into())
+							}
+						},
+						Err(err) => return Err(err.into()),
+					}
 				},
 				#[cfg(feature = "deploy")]
 				DeployState::Deploying(ref mut future) => {
 					let (main_receipt, test_receipt) = try_ready!(future.poll());
+
 					let database = Database {
 						home_contract_address: main_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
 						foreign_contract_address: test_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
