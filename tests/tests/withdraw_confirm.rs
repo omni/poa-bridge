@@ -1,3 +1,4 @@
+/*
 /// test interactions of withdraw_confirm state machine with RPC
 
 extern crate futures;
@@ -429,3 +430,4 @@ test_app_stream! {
 			res => json!([]);
 	]
 }
+*/

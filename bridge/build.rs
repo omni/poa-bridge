@@ -22,6 +22,7 @@ fn check_rustc_version() {
 fn main() {
 	check_rustc_version();
 
+    /*
 	// rerun build script if bridge contract has changed.
 	// without this cargo doesn't since the bridge contract
 	// is outside the crate directories
@@ -53,4 +54,5 @@ fn main() {
 			}
 		}
 	}
+    */
 }

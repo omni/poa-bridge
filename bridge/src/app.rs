@@ -33,7 +33,7 @@ pub struct Connections<T> where T: Transport {
 impl Connections<Http>  {
 	pub fn new_http(handle: &Handle, home: &str, home_concurrent_connections: usize, foreign: &str, foreign_concurrent_connections: usize) -> Result<Self, Error> {
 
-	    let home = Http::with_event_loop(home, handle,home_concurrent_connections)
+		let home = Http::with_event_loop(home, handle,home_concurrent_connections)
 			.map_err(ErrorKind::Web3)
 			.map_err(Error::from)
 			.chain_err(||"Cannot connect to home node rpc")?;

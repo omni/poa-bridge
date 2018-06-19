@@ -1,9 +1,8 @@
-mod deploy;
 mod balance;
 mod chain_id;
 pub mod nonce;
+mod deposit_confirm;
 mod deposit_relay;
-mod withdraw_confirm;
 mod withdraw_relay;
 mod gas_price;
 
@@ -18,20 +17,19 @@ use database::Database;
 use error::{Error, ErrorKind};
 use tokio_core::reactor::Handle;
 
-pub use self::deploy::{Deploy, Deployed, create_deploy};
 pub use self::balance::{BalanceCheck, create_balance_check};
 pub use self::chain_id::{ChainIdRetrieval, create_chain_id_retrieval};
-pub use self::deposit_relay::{DepositRelay, create_deposit_relay};
-pub use self::withdraw_relay::{WithdrawRelay, create_withdraw_relay};
-pub use self::withdraw_confirm::{WithdrawConfirm, create_withdraw_confirm};
+pub use self::deposit_confirm::create_deposit_confirm;
+pub use self::deposit_relay::create_deposit_relay;
+pub use self::withdraw_relay::create_withdraw_relay;
 pub use self::gas_price::StandardGasPriceStream;
 
 /// Last block checked by the bridge components.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum BridgeChecked {
+	DepositConfirm(u64),
 	DepositRelay(u64),
 	WithdrawRelay(u64),
-	WithdrawConfirm(u64),
 }
 
 pub struct Bridge<ES: Stream<Item = BridgeChecked>> {
@@ -47,14 +45,14 @@ impl<ES: Stream<Item = BridgeChecked, Error = Error>> Stream for Bridge<ES> {
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 		let check = try_stream!(self.event_stream.poll());
 		match check {
+			BridgeChecked::DepositConfirm(n) => {
+				self.database.checked_deposit_confirm = n;
+			},
 			BridgeChecked::DepositRelay(n) => {
 				self.database.checked_deposit_relay = n;
 			},
 			BridgeChecked::WithdrawRelay(n) => {
 				self.database.checked_withdraw_relay = n;
-			},
-			BridgeChecked::WithdrawConfirm(n) => {
-				self.database.checked_withdraw_confirm = n;
 			},
 		}
 		let file = fs::OpenOptions::new()
@@ -99,14 +97,14 @@ pub fn create_bridge_event_stream<'a, T: Transport + 'a + Clone>(app: Arc<App<T>
 	let home_gas_price = Arc::new(RwLock::new(app.config.home.default_gas_price));
 	let foreign_gas_price = Arc::new(RwLock::new(app.config.foreign.default_gas_price));
 
+	let deposit_confirm = create_deposit_confirm(app.clone(), init, home_balance.clone(), home_chain_id, home_gas_price.clone())
+		.map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "deposit_confirm").into());
 	let deposit_relay = create_deposit_relay(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_gas_price.clone())
 		.map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "deposit_relay").into());
 	let withdraw_relay = create_withdraw_relay(app.clone(), init, home_balance.clone(), home_chain_id, home_gas_price.clone())
 		.map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_relay").into());
-	let withdraw_confirm = create_withdraw_confirm(app.clone(), init, foreign_balance.clone(), foreign_chain_id, foreign_gas_price.clone())
-		.map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "withdraw_confirm").into());
-
-	let bridge = Box::new(deposit_relay.select(withdraw_relay).select(withdraw_confirm));
+	
+	let bridge = Box::new(deposit_confirm.select(deposit_relay).select(withdraw_relay));
 
 	BridgeEventStream {
 		foreign_balance_check: create_balance_check(app.clone(), app.connections.foreign.clone(), app.config.foreign.clone()),
@@ -244,22 +242,22 @@ mod tests {
 		let _ = event_loop.run(bridge.collect());
 
 		let db = Database::load(&path).unwrap();
+		assert_eq!(0, db.checked_deposit_confirm);
 		assert_eq!(1, db.checked_deposit_relay);
-		assert_eq!(0, db.checked_withdraw_confirm);
 		assert_eq!(0, db.checked_withdraw_relay);
 
 		let bridge = Bridge {
 			path: path.clone(),
 			database: Database::default(),
-			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawConfirm(3), BridgeChecked::WithdrawRelay(2)]),
+			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositConfirm(1), BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawRelay(3)]),
 		};
 
 		let mut event_loop = Core::new().unwrap();
 		let _ = event_loop.run(bridge.collect());
 
 		let db = Database::load(&path).unwrap();
+		assert_eq!(1, db.checked_deposit_confirm);
 		assert_eq!(2, db.checked_deposit_relay);
-		assert_eq!(3, db.checked_withdraw_confirm);
-		assert_eq!(2, db.checked_withdraw_relay);
+		assert_eq!(3, db.checked_withdraw_relay);
 	}
 }

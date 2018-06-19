@@ -1,4 +1,8 @@
 #![recursion_limit="128"]
+// Do not throw warnings when type aliases (that are generic over
+// some type/types) are annotated with trait bounds. The compiler does
+// not enforce thses bounds, but they aid in readability.
+#![allow(type_alias_bounds)]
 #[macro_use]
 extern crate futures;
 extern crate serde;

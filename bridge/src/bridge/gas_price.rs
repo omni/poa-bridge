@@ -14,9 +14,9 @@ use error::Error;
 const CACHE_TIMEOUT_DURATION: Duration = Duration::from_secs(5 * 60);
 
 enum State<F> {
-    Initial,
-    WaitingForResponse(Timeout<F>),
-    Yield(Option<u64>),
+	Initial,
+	WaitingForResponse(Timeout<F>),
+	Yield(Option<u64>),
 }
 
 pub trait Retriever {
@@ -41,14 +41,14 @@ impl<C, B> Retriever for Client<C, B> where C: Connect, B: Stream<Item = Chunk, 
 pub type StandardGasPriceStream = GasPriceStream<Box<Future<Item = Chunk, Error = Error>>, Client<HttpsConnector<HttpConnector>>, Chunk>;
 
 pub struct GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future<Item = I, Error = Error>, R: Retriever<Future = F, Item = F::Item> {
-    state: State<F>,
-    retriever: R,
-    uri: Uri,
-    speed: GasPriceSpeed,
-    request_timer: Timer,
-    interval: Interval,
-    last_price: u64,
-    request_timeout: Duration,
+	state: State<F>,
+	retriever: R,
+	uri: Uri,
+	speed: GasPriceSpeed,
+	request_timer: Timer,
+	interval: Interval,
+	last_price: u64,
+	request_timeout: Duration,
 }
 
 impl StandardGasPriceStream {
@@ -61,44 +61,44 @@ impl StandardGasPriceStream {
 }
 
 impl<F, R, I> GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future<Item = I, Error = Error>, R: Retriever<Future = F, Item = F::Item> {
-    pub fn new_with_retriever(node: &Node, retriever: R, timer: &Timer) -> Self {
-        let uri: Uri = node.gas_price_oracle_url.clone().unwrap().parse().unwrap();
+	pub fn new_with_retriever(node: &Node, retriever: R, timer: &Timer) -> Self {
+		let uri: Uri = node.gas_price_oracle_url.clone().unwrap().parse().unwrap();
 
-        GasPriceStream {
-            state: State::Initial,
-            retriever,
-            uri,
-            speed: node.gas_price_speed,
-            request_timer: timer.clone(),
-            interval: timer.interval_at(Instant::now(), CACHE_TIMEOUT_DURATION),
-            last_price: node.default_gas_price,
-            request_timeout: node.gas_price_timeout,
-        }
-    }
+		GasPriceStream {
+			state: State::Initial,
+			retriever,
+			uri,
+			speed: node.gas_price_speed,
+			request_timer: timer.clone(),
+			interval: timer.interval_at(Instant::now(), CACHE_TIMEOUT_DURATION),
+			last_price: node.default_gas_price,
+			request_timeout: node.gas_price_timeout,
+		}
+	}
 }
 
 impl<F, R, I> Stream for GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future<Item = I, Error = Error>, R: Retriever<Future = F, Item = F::Item> {
-    type Item = u64;
-    type Error = Error;
+	type Item = u64;
+	type Error = Error;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        loop {
-            let next_state = match self.state {
-                State::Initial => {
-                    let _ = try_stream!(self.interval.poll());
+	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+		loop {
+			let next_state = match self.state {
+				State::Initial => {
+					let _ = try_stream!(self.interval.poll());
 
-                    let request = self.retriever.retrieve(&self.uri);
+					let request = self.retriever.retrieve(&self.uri);
 
-                    let request_future = self.request_timer
-                        .timeout(request, self.request_timeout);
+					let request_future = self.request_timer
+						.timeout(request, self.request_timeout);
 
-                    State::WaitingForResponse(request_future)
-                },
-                State::WaitingForResponse(ref mut request_future) => {
-                    match request_future.poll() {
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Ok(Async::Ready(chunk)) => {
-                            match json::from_slice::<HashMap<String, json::Value>>(chunk.as_ref()) {
+					State::WaitingForResponse(request_future)
+				},
+				State::WaitingForResponse(ref mut request_future) => {
+					match request_future.poll() {
+						Ok(Async::NotReady) => return Ok(Async::NotReady),
+						Ok(Async::Ready(chunk)) => {
+							match json::from_slice::<HashMap<String, json::Value>>(chunk.as_ref()) {
 								Ok(json_obj) => {
 									match json_obj.get(self.speed.as_str()) {
 										Some(json::Value::Number(price)) => State::Yield(Some((price.as_f64().unwrap() * 1_000_000_000.0).trunc() as u64)),
@@ -113,14 +113,14 @@ impl<F, R, I> Stream for GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future
 									State::Yield(Some(self.last_price))
 								}
 							}
-                        },
-                        Err(e) => {
-                            error!("Error while fetching gas price: {:?}", e);
+						},
+						Err(e) => {
+							error!("Error while fetching gas price: {:?}", e);
 							State::Yield(Some(self.last_price))
-                        },
-                    }
-                },
-                State::Yield(ref mut opt) => match opt.take() {
+						},
+					}
+				},
+				State::Yield(ref mut opt) => match opt.take() {
 					None => State::Initial,
 					Some(price) => {
 						if price != self.last_price {
@@ -128,13 +128,13 @@ impl<F, R, I> Stream for GasPriceStream<F, R, I> where I: AsRef<[u8]>, F: Future
 							self.last_price = price;
 						}
 						return Ok(Async::Ready(Some(price)))
-                    },
+					},
 				}
-            };
+			};
 
-            self.state = next_state;
-        }
-    }
+			self.state = next_state;
+		}
+	}
 }
 
 #[cfg(test)]
@@ -143,7 +143,7 @@ mod tests {
 	use super::*;
 	use error::{Error, ErrorKind};
 	use futures::{Async, future::{err, ok, FutureResult}};
-	use config::{Node, NodeInfo, DEFAULT_CONCURRENCY};
+	use config::{ContractConfig, DEFAULT_CONCURRENCY, Node, NodeInfo};
 	use tokio_timer::Timer;
 	use std::time::Duration;
 	use std::path::PathBuf;
@@ -165,6 +165,7 @@ mod tests {
 	fn errored_request() {
 		let node = Node {
 			account: Address::new(),
+			contract: ContractConfig { bin: vec![].into() },
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -208,6 +209,7 @@ mod tests {
 	fn bad_json() {
 		let node = Node {
 			account: Address::new(),
+			contract: ContractConfig { bin: vec![].into() },
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -251,6 +253,7 @@ mod tests {
 	fn unexpected_json() {
 		let node = Node {
 			account: Address::new(),
+			contract: ContractConfig { bin: vec![].into() },
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -293,6 +296,7 @@ mod tests {
 	fn non_object_json() {
 		let node = Node {
 			account: Address::new(),
+			contract: ContractConfig { bin: vec![].into() },
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -335,6 +339,7 @@ mod tests {
 	fn correct_json() {
 		let node = Node {
 			account: Address::new(),
+			contract: ContractConfig { bin: vec![].into() },
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -363,4 +368,3 @@ mod tests {
 	}
 
 }
-

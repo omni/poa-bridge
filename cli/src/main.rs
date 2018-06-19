@@ -13,7 +13,7 @@ extern crate jsonrpc_core as rpc;
 #[macro_use]
 extern crate version;
 
-use std::{env, fs, io};
+use std::{env, io};
 use std::sync::Arc;
 use std::path::PathBuf;
 use docopt::Docopt;
@@ -21,8 +21,9 @@ use futures::{Stream, future};
 use tokio_core::reactor::Core;
 
 use bridge::app::App;
-use bridge::bridge::{create_bridge, create_deploy, create_chain_id_retrieval, Deployed};
+use bridge::bridge::{create_bridge, create_chain_id_retrieval};
 use bridge::config::Config;
+use bridge::database::Database;
 use bridge::error::{Error, ErrorKind};
 use bridge::web3;
 
@@ -69,18 +70,18 @@ impl From<(i32, Error)> for UserFacingError {
 
 const USAGE: &'static str = r#"
 POA-Ethereum bridge.
-    Copyright 2017 Parity Technologies (UK) Limited
-    Copyright 2018 POA Networks Ltd.
+	Copyright 2017 Parity Technologies (UK) Limited
+	Copyright 2018 POA Networks Ltd.
 
 Usage:
-    bridge [options] --config <config> --database <database>
-    bridge -h | --help
-    bridge -v | --version
+	bridge [options] --config <config> --database <database>
+	bridge -h | --help
+	bridge -v | --version
 
 Options:
-    -h, --help                        Display help message and exit.
-    -v, --version                     Print version and exit.
-    --allow-insecure-rpc-endpoints    Allow non-HTTPS endpoints
+	-h, --help                        Display help message and exit.
+	-v, --version                     Print version and exit.
+	--allow-insecure-rpc-endpoints    Allow non-HTTPS endpoints
 "#;
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +96,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 fn main() {
 	let _ = env_logger::init();
-
+	
 	let running = Arc::new(AtomicBool::new(true));
 
 	let r = running.clone();
@@ -126,7 +127,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		.and_then(|d| d.argv(command).deserialize()).map_err(|e| e.to_string())?;
 
 	if args.flag_version {
-		return Ok(version!().into())
+		return Ok(version!().into());
 	}
 
 	info!(target: "bridge", "Loading config");
@@ -167,25 +168,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		*foreign_nonce = event_loop.run(api::eth_get_transaction_count(app.connections.foreign.clone(), app.config.foreign.account, None)).expect("can't initialize foreign nonce");
 	}
 
-	#[cfg(feature = "deploy")]
-	info!(target: "bridge", "Deploying contracts (if needed)");
-	#[cfg(not(feature = "deploy"))]
-	info!(target: "bridge", "Reading the database");
-
-	let deployed = event_loop.run(create_deploy(app.clone(), home_chain_id, foreign_chain_id))?;
-
-	let database = match deployed {
-		Deployed::New(database) => {
-			info!(target: "bridge", "Deployed new bridge contracts");
-			info!(target: "bridge", "\n\n{}\n", database);
-			database.save(fs::File::create(&app.database_path)?)?;
-			database
-		},
-		Deployed::Existing(database) => {
-			info!(target: "bridge", "Loaded database");
-			database
-		},
-	};
+	let database = Database::load(&app.database_path)?;
 
 	info!(target: "bridge", "Starting listening to events");
 	let bridge = create_bridge(app.clone(), &database, &handle, home_chain_id, foreign_chain_id).and_then(|_| future::ok(true)).collect();

@@ -1,169 +1,384 @@
 use std::sync::{Arc, RwLock};
-use futures::{self, Future, Stream, stream::{Collect, FuturesUnordered, futures_unordered}, Poll};
-use web3::Transport;
-use web3::types::{U256, Address, Bytes, Log, FilterBuilder};
-use ethabi::RawLog;
-use api::{LogStream, self};
-use error::{Error, ErrorKind, Result};
-use database::Database;
-use contracts::{home, foreign};
-use util::web3_filter;
-use app::App;
-use ethcore_transaction::{Transaction, Action};
-use super::nonce::{NonceCheck, SendRawTransaction};
-use super::BridgeChecked;
+
+use ethabi::{self, RawLog};
+use ethcore_transaction::{Action, Transaction};
+use futures::{Async, Future, Poll, Stream};
+use futures::future::{Join, JoinAll, join_all};
+use futures::stream::{Collect, FuturesUnordered, futures_unordered};
 use itertools::Itertools;
+use tokio_timer::Timeout;
+use web3::Transport;
+use web3::types::{Address, Bytes, FilterBuilder, Log, U256};
 
-fn deposits_filter(home: &home::HomeBridge, address: Address) -> FilterBuilder {
-	let filter = home.events().deposit().create_filter();
-	web3_filter(filter, address)
+use api::{self, ApiCall, LogStream, LogStreamInit, LogStreamItem, log_stream};
+use app::App;
+use contracts::{foreign::ForeignBridge, home::HomeBridge};
+use database::Database;
+use error::{Error, ErrorKind};
+use signature::Signature;
+use super::BridgeChecked;
+use super::nonce::{NonceCheck, SendRawTransaction, send_transaction_with_nonce};
+use util::web3_filter;
+
+// A future representing all open calls to the Home contract's
+// `message()` and `signature()` functions (with timeouts).
+type MessagesAndSignaturesFuture<T: Transport> = Join<
+    JoinAll<Vec<Timeout<ApiCall<Bytes, T::Out>>>>,
+    JoinAll<Vec<JoinAll<Vec<Timeout<ApiCall<Bytes, T::Out>>>>>>
+>;
+
+// A future representing all open calls to the Foreign contract's
+// `deposit()` function.
+type DepositsFuture<T: Transport> =
+    Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>;
+
+// Returns a log filter for the Home Bridge contract's `CollectedSignatures` event.
+fn collected_signatures_filter(
+    home_contract: &HomeBridge,
+    contract_address: Address
+) -> FilterBuilder
+{
+    let filter = home_contract.events().collected_signatures().create_filter();
+    web3_filter(filter, contract_address)
 }
 
-fn deposit_relay_payload(home: &home::HomeBridge, foreign: &foreign::ForeignBridge, log: Log) -> Result<Bytes> {
-	let raw_log = RawLog {
-		topics: log.topics,
-		data: log.data.0,
-	};
-	let deposit_log = home.events().deposit().parse_log(raw_log)?;
-	let hash = log.transaction_hash.expect("log to be mined and contain `transaction_hash`");
-	let payload = foreign.functions().deposit().input(deposit_log.recipient, deposit_log.value, hash.0);
-	Ok(payload.into())
+// Wraps the input data (ie. "payloads") for the Home contract's
+// `message()` and `signature()` functions.
+struct Payloads {
+    message_payload: Bytes,
+    signature_payloads: Vec<Bytes>,
 }
 
-/// State of deposits relay.
-enum DepositRelayState<T: Transport> {
-	/// Deposit relay is waiting for logs.
-	Wait,
-	/// Relaying deposits in progress.
-	RelayDeposits {
-		future: Collect<FuturesUnordered<NonceCheck<T, SendRawTransaction<T>>>>,
-		block: u64,
-	},
-	/// All deposits till given block has been relayed.
-	Yield(Option<u64>),
+// Returns the encoded input for the Home Bridge contract's
+// `message()` and `signature()` functions.
+fn create_message_and_signatures_payloads(
+    home_contract: &HomeBridge,
+    n_signatures_required: u32,
+    my_address: Address,
+    collected_signatures_event_log: &Log,
+) -> Result<Option<Payloads>, Error>
+{
+    let tx_hash = collected_signatures_event_log
+        .transaction_hash
+        .unwrap();
+    
+    let raw_log = RawLog {
+        topics: collected_signatures_event_log.topics.clone(),
+        data: collected_signatures_event_log.data.0.clone(),
+    };
+
+    let parsed = home_contract.events().collected_signatures()
+        .parse_log(raw_log)
+        .unwrap();
+
+    let this_bridge_is_responsible_for_relaying_deposit =
+        parsed.authority_responsible_for_relay == my_address;
+
+    if this_bridge_is_responsible_for_relaying_deposit {
+        info!("this bridge is responsible for relaying Deposit. tx_hash: {}", tx_hash);
+    } else {
+        info!("this bridge is not responsible for relaying Deposit. tx_hash: {}", tx_hash);
+        return Ok(None);
+    }
+
+    let message_payload = home_contract.functions().message()
+        .input(parsed.message_hash)
+        .into();
+
+    let signature_payloads: Vec<Bytes> = (0..n_signatures_required).into_iter()
+        .map(|i| home_contract.functions().signature()
+            .input(parsed.message_hash, i)
+            .into()
+        )
+        .collect();
+
+    let payloads = Payloads { message_payload, signature_payloads };
+    Ok(Some(payloads))
 }
 
-pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Database, foreign_balance: Arc<RwLock<Option<U256>>>, foreign_chain_id: u64, foreign_gas_price: Arc<RwLock<u64>>) -> DepositRelay<T> {
-	let logs_init = api::LogStreamInit {
-		after: init.checked_deposit_relay,
-		request_timeout: app.config.home.request_timeout,
-		poll_interval: app.config.home.poll_interval,
-		confirmations: app.config.home.required_confirmations,
-		filter: deposits_filter(&app.home_bridge, init.home_contract_address),
-	};
-	DepositRelay {
-		logs: api::log_stream(app.connections.home.clone(), app.timer.clone(), logs_init),
-		foreign_contract: init.foreign_contract_address,
-		state: DepositRelayState::Wait,
-		app,
-		foreign_balance,
-		foreign_chain_id,
-		foreign_gas_price,
-	}
+// Returns the encoded input (ie. "payload") for the Foreign
+// Contract's `deposit()` function.
+fn create_deposit_payload(
+    foreign_contract: &ForeignBridge, 
+    message: Bytes,
+    signatures: Vec<Signature>
+) -> Vec<u8>
+{
+    let mut vs = vec![];
+    let mut rs = vec![];
+    let mut ss = vec![];
+
+    for Signature { v, r, s } in signatures.into_iter() {
+        vs.push(v);
+        rs.push(r);
+        ss.push(s);
+    }
+
+    foreign_contract.functions().deposit().input(vs, rs, ss, message.0)
 }
 
+// Represents each state in the DepositRelay's state machine.
+enum State<T: Transport> {
+    // This instance of `DepositRelay` is not waiting for any futures
+    // to complete, nor does it have data to yield. The next call to
+    // `DepositRelay.poll()` is responsible for querying the Home
+    // chain for `CollectedSignatures` event logs.
+    Initial,
+    // This instance of `DepositRelay` is currently waiting for the
+    // futures produced by calling the Home contract's `withdraw()`
+    // and `signature()` functions to complete.
+    WaitingOnMessagesAndSignatures {
+        future: MessagesAndSignaturesFuture<T>,
+        last_block_checked: u64,
+    },
+    // This instance of `DepositRelay` is currently waiting for all
+    // calls to the Foreign contract's `deposit()` function to
+    // complete.
+    WaitingOnDeposits {
+        future: DepositsFuture<T>,
+        last_block_checked: u64,
+    },
+    // All futures have completed, yield the last block checked on
+    // the Home chain for `CollectedSignatures` events.
+    Yield(Option<u64>),
+}
+
+// Monitors the Home chain for `CollectedSignatures` events, once
+// new CollectedSignatures events are found, the `DepositRelay`
+// will call the Foreign Bridge contract's `deposit()` function.
 pub struct DepositRelay<T: Transport> {
-	app: Arc<App<T>>,
-	logs: LogStream<T>,
-	state: DepositRelayState<T>,
-	foreign_contract: Address,
-	foreign_balance: Arc<RwLock<Option<U256>>>,
-	foreign_chain_id: u64,
-	foreign_gas_price: Arc<RwLock<u64>>,
+    app: Arc<App<T>>,
+    logs: LogStream<T>,
+    state: State<T>,
+    foreign_balance: Arc<RwLock<Option<U256>>>,
+    foreign_contract_address: Address,
+    foreign_chain_id: u64,
+    foreign_gas_price: Arc<RwLock<u64>>,
+    home_contract_address: Address,
+}
+
+pub fn create_deposit_relay<T: Transport>(
+    app: Arc<App<T>>,
+    init: &Database,
+    foreign_balance: Arc<RwLock<Option<U256>>>,
+    foreign_chain_id: u64,
+    foreign_gas_price: Arc<RwLock<u64>>,
+) -> DepositRelay<T>
+{ 
+    let foreign_contract_address = init.foreign_contract_address;
+    let home_contract_address = init.home_contract_address;
+
+	let collected_signatures_event_logs = {
+        let last_block_checked = init.checked_deposit_relay;
+        let home_conn = app.connections.home.clone(); 
+        let home_config = &app.config.home;
+        let home_contract = &app.home_bridge;
+        let timer = app.timer.clone();
+        
+        let log_stream_init = LogStreamInit {
+            after: last_block_checked,
+            request_timeout: home_config.request_timeout,
+            poll_interval: home_config.poll_interval,
+            confirmations: home_config.required_confirmations,
+            filter: collected_signatures_filter(home_contract, home_contract_address),
+        };
+
+        log_stream(home_conn, timer, log_stream_init)
+    };
+
+	DepositRelay {
+		app,
+        logs: collected_signatures_event_logs,
+		state: State::Initial,
+		foreign_balance,
+		foreign_contract_address,
+        foreign_chain_id,
+		foreign_gas_price,
+	    home_contract_address,
+    }
 }
 
 impl<T: Transport> Stream for DepositRelay<T> {
-	type Item = BridgeChecked;
-	type Error = Error;
+    type Item = BridgeChecked;
+    type Error = Error;
 
-	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-		loop {
-			let next_state = match self.state {
-				DepositRelayState::Wait => {
-					let foreign_balance = self.foreign_balance.read().unwrap();
-					if foreign_balance.is_none() {
-						warn!("foreign contract balance is unknown");
-						return Ok(futures::Async::NotReady);
-					}
-					let item = try_stream!(self.logs.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "polling home for deposits")));
-					let len = item.logs.len();
-					info!("got {} new deposits to relay", len);
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> { 
+        let app = &self.app;
+        let my_home_address = self.app.config.home.account;
+        
+        let home_config = &self.app.config.home;
+        let home_conn = &self.app.connections.home;
+        let home_contract = &self.app.home_bridge;
+        let home_contract_address = self.home_contract_address;
+       
+        let foreign_chain_id = self.foreign_chain_id;
+        let foreign_config = &self.app.config.foreign;
+        let foreign_conn = &self.app.connections.foreign;
+        let foreign_contract = &self.app.foreign_bridge;
+        let foreign_contract_address = self.foreign_contract_address;
 
-					let gas = U256::from(self.app.config.txs.deposit_relay.gas);
-					let gas_price = U256::from(*self.foreign_gas_price.read().unwrap());
-					let balance_required = gas * gas_price * U256::from(item.logs.len());
-					
-					if balance_required > *foreign_balance.as_ref().unwrap() {
-						return Err(ErrorKind::InsufficientFunds.into())
-					}
-					let deposits = item.logs
-						.into_iter()
-						.map(|log| deposit_relay_payload(&self.app.home_bridge, &self.app.foreign_bridge, log))
-						.collect::<Result<Vec<_>>>()?
-						.into_iter()
-						.map(|payload| {
-							let tx = Transaction {
-								gas,
-								gas_price,
-								value: U256::zero(),
-								data: payload.0,
-								nonce: U256::zero(),
-								action: Action::Call(self.foreign_contract.clone()),
-							};
-							api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(), self.app.config.foreign.clone(),
-															 tx, self.foreign_chain_id, SendRawTransaction(self.app.connections.foreign.clone()))
-						}).collect_vec();
+        let gas_per_deposit_call = self.app.config.txs.deposit_relay.gas.into();
+        let n_signatures_required = self.app.config.authorities.required_signatures;
 
-					info!("relaying {} deposits", len);
-					DepositRelayState::RelayDeposits {
-						future: futures_unordered(deposits).collect(),
-						block: item.to,
-					}
-				},
-				DepositRelayState::RelayDeposits { ref mut future, block } => {
-					let _ = try_ready!(future.poll().map_err(|e| ErrorKind::ContextualizedError(Box::new(e), "relaying deposit to foreign")));
-					info!("deposit relay completed");
-					DepositRelayState::Yield(Some(block))
-				},
-				DepositRelayState::Yield(ref mut block) => match block.take() {
-					None => DepositRelayState::Wait,
-					Some(v) => return Ok(Some(BridgeChecked::DepositRelay(v)).into()),
-				}
-			};
-			self.state = next_state;
-		}
-	}
-}
+        loop {
+            let next_state = match self.state {
+                State::Initial => {
+					let LogStreamItem { to: last_block_checked, logs: collected_signatures_event_logs, .. } =
+                        try_stream!(
+                            self.logs.poll().map_err(|e| {
+                                let context = "polling Home contract for CollectedSignatures event logs";
+                                ErrorKind::ContextualizedError(Box::new(e), context)
+                            })
+                        );
 
-#[cfg(test)]
-mod tests {
-	use rustc_hex::FromHex;
-	use web3::types::{Log, Bytes, Address};
-	use contracts::{home, foreign};
-	use super::deposit_relay_payload;
+                    let n_new_events = collected_signatures_event_logs.len();
+					info!("found {} new CollectedSignatures events", n_new_events);
+                
+                    let payloads: Vec<Payloads> = collected_signatures_event_logs.iter()
+                        .map(|log| create_message_and_signatures_payloads(
+                            home_contract,
+                            n_signatures_required,
+                            my_home_address,
+                            log
+                        ))
+                        .collect::<Result<Vec<Option<Payloads>>, Error>>()?
+                        .into_iter()
+                        .filter_map(|opt| opt)
+                        .collect();
 
-	#[test]
-	fn test_deposit_relay_payload() {
-		let home = home::HomeBridge::default();
-		let foreign = foreign::ForeignBridge::default();
+                    let message_calls = payloads.iter()
+                        .map(|payload| {
+                            let Payloads { message_payload, .. } = payload;
+                            app.timer.timeout(
+                                api::call(home_conn, home_contract_address, message_payload.clone()),
+                                home_config.request_timeout
+                            )
+                        })
+                        .collect();
 
-		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f0".from_hex().unwrap();
-		let log = Log {
-			data: data.into(),
-			topics: vec!["e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c".into()],
-			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
-			address: Address::zero(),
-			block_hash: None,
-			transaction_index: None,
-			log_index: None,
-			transaction_log_index: None,
-			log_type: None,
-			block_number: None,
-			removed: None,
-		};
+                    let signature_calls = payloads.iter()
+                        .map(|payloads| {
+                            let Payloads { signature_payloads, .. } = payloads;
+                            let calls = signature_payloads.iter()
+                                .map(|signature_payload| app.timer.timeout(
+                                    api::call(home_conn, home_contract_address, signature_payload.clone()),
+                                    home_config.request_timeout
+                                ))
+                                .collect();
+                            join_all(calls)
+                        })
+                        .collect();
 
-		let payload = deposit_relay_payload(&home, &foreign, log).unwrap();
-		let expected: Bytes = "26b3293f000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f0884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".from_hex().unwrap().into();
-		assert_eq!(expected, payload);
-	}
+                    State::WaitingOnMessagesAndSignatures {
+                        future: join_all(message_calls).join(join_all(signature_calls)),
+                        last_block_checked,
+                    }
+                },
+                State::WaitingOnMessagesAndSignatures { ref mut future, last_block_checked } =>  {
+                    let foreign_balance = self.foreign_balance.read().unwrap();
+
+                    if foreign_balance.is_none() {
+                        warn!("foreign contract balance is unknown");
+                        return Ok(Async::NotReady);
+                    }
+
+                    let (messages_raw, signatures_raw) = try_ready!(
+                        future.poll().map_err(|e| {
+                            let context = "fetching messages and signatures from foreign";
+                            ErrorKind::ContextualizedError(Box::new(e), context)
+                        })
+                    );
+
+                    info!("fetching messages and signatures complete");
+                    let n_messages = messages_raw.len();
+                    let n_signatures = signatures_raw.len();
+                    assert_eq!(n_messages, n_signatures);
+                    let n_deposits = U256::from(n_messages);
+
+                    let foreign_gas_price = U256::from(*self.foreign_gas_price.read().unwrap());
+                    let balance_required = gas_per_deposit_call * foreign_gas_price * n_deposits;
+                    if balance_required > *foreign_balance.as_ref().unwrap() {
+                        return Err(ErrorKind::InsufficientFunds.into());
+                    }
+
+                    let messages_parsed = messages_raw.iter()
+                        .map(|message|
+                             home_contract.functions().message()
+                                .output(&message.0)
+                                .map(Bytes::from)
+                        )
+                        .collect::<ethabi::Result<Vec<Bytes>>>()
+                        .map_err(Error::from)?;
+
+                    let signatures_parsed = signatures_raw.iter()
+                        .map(|raw_sigs| {
+                            let mut sigs = vec![];
+                            
+                            for raw_sig in raw_sigs.iter() {
+                                let bytes = home_contract.functions().signature().output(&raw_sig.0)?;
+                                let sig = Signature::from_bytes(&bytes)?;
+                                sigs.push(sig);
+                            }
+
+                            Ok(sigs)
+                        })
+                        .collect::<Result<Vec<Vec<Signature>>, Error>>()?;
+
+                    let deposits = messages_parsed.into_iter()
+                        .zip(signatures_parsed.into_iter())
+                        .map(|(message, signatures)| {
+                            let payload = create_deposit_payload(
+                                foreign_contract,
+                                message,
+                                signatures
+                            );
+
+                            let tx = Transaction {
+                                gas: gas_per_deposit_call,
+                                gas_price: foreign_gas_price,
+                                value: U256::zero(),
+                                data: payload,
+                                nonce: U256::zero(),
+                                action: Action::Call(foreign_contract_address),
+                            };
+                            
+                            send_transaction_with_nonce(
+                                foreign_conn.clone(),
+                                app.clone(),
+                                foreign_config.clone(),
+                                tx,
+                                foreign_chain_id,
+                                SendRawTransaction(foreign_conn.clone()),
+                            )
+                        })
+                        .collect_vec();
+
+                    info!("relaying {} deposits", n_deposits);
+                    State::WaitingOnDeposits {
+                        future: futures_unordered(deposits).collect(),
+                        last_block_checked,
+                    }
+                },
+                State::WaitingOnDeposits { ref mut future, last_block_checked } => {
+                    let _ = try_ready!(
+                        future.poll().map_err(|e| {
+                            let context = "relaying deposit to foreign";
+                            ErrorKind::ContextualizedError(Box::new(e), context)
+                        })
+                    );
+                    info!("deposit relay completed");
+                    State::Yield(Some(last_block_checked))
+                },
+                State::Yield(ref mut block) => match block.take() {
+                    Some(block) => {
+                        let checked = BridgeChecked::DepositRelay(block);
+                        return Ok(Async::Ready(Some(checked)));
+                    },
+                    None => State::Initial,
+                },
+            };
+
+            self.state = next_state;
+        }
+    }
 }

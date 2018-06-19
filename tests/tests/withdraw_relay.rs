@@ -11,7 +11,7 @@ extern crate ethereum_types;
 extern crate rustc_hex;
 extern crate ethcore;
 
-use ethereum_types::{U256, H256};
+use ethereum_types::{H160, U256, H256};
 use rustc_hex::ToHex;
 
 use bridge::bridge::create_withdraw_relay;
@@ -151,16 +151,12 @@ test_app_stream! {
 					.functions()
 					.withdraw()
 					.input(
-						vec![U256::from(1), U256::from(4)],
-						vec![H256::from(2), H256::from(5)],
-						vec![H256::from(3), H256::from(6)],
-						MessageToMainnet {
-							recipient: [1u8; 20].into(),
-							value: 10000.into(),
-							sidenet_transaction_hash: "0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into(),
-							mainnet_gas_price: 1000.into(),
-						}.to_bytes()
-					).to_hex()),
+						H160::from([1u8; 20]),
+						U256::from(10000),
+						H256::from("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364")
+					)
+					.to_hex()
+				),
 				"from": "0x0000000000000000000000000000000000000001",
 				"gas": "0x0",
 				"gasPrice": "0x3e8",
@@ -197,7 +193,6 @@ test_app_stream! {
 				recipient: [1u8; 20].into(),
 				value: 10000.into(),
 				sidenet_transaction_hash: "0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into(),
-				mainnet_gas_price: 1000.into(),
 			}.to_payload().to_hex()));
 		// calls to `signature`
 		"eth_call" =>
