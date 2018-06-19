@@ -161,9 +161,10 @@ impl Node {
 
 		// Ensure that the contract address is specified for non-deploy builds:
 		if cfg!(not(feature = "deploy")) && node.contract_address.is_none() {
-			return Err("Contract address not specified. Please define the 'contract_address' \
-				key within both the '[home]' and '[foreign]' tables in the toml config file. \
-				See 'https://github.com/poanetwork/poa-bridge/blob/master/README.md' for more.".into())
+			return Err(ErrorKind::ConfigError("Contract address not specified. Please define the \
+				'contract_address' key within both the '[home]' and '[foreign]' tables in the \
+				toml config file. See 'https://github.com/poanetwork/poa-bridge/blob/master/README.md' \
+				for more.".into()).into());
 		}
 
 		Ok(node)
