@@ -146,8 +146,6 @@ test_app_stream! {
 	txs => Transactions {
 		deposit_relay: TransactionConfig {
 			gas: 0xfd,
-			gas_price: 0xa0,
-			concurrency: 100,
 		},
 		..Default::default()
 	},

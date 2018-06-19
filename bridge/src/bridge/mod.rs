@@ -1,4 +1,3 @@
-mod deploy;
 mod balance;
 mod chain_id;
 pub mod nonce;
@@ -18,7 +17,6 @@ use database::Database;
 use error::{Error, ErrorKind};
 use tokio_core::reactor::Handle;
 
-pub use self::deploy::{Deploy, Deployed, create_deploy};
 pub use self::balance::{BalanceCheck, create_balance_check};
 pub use self::chain_id::{ChainIdRetrieval, create_chain_id_retrieval};
 pub use self::deposit_confirm::create_deposit_confirm;
@@ -27,9 +25,9 @@ pub use self::withdraw_relay::create_withdraw_relay;
 pub use self::gas_price::StandardGasPriceStream;
 
 /// Last block checked by the bridge components.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum BridgeChecked {
-    DepositConfirm(u64),
+	DepositConfirm(u64),
 	DepositRelay(u64),
 	WithdrawRelay(u64),
 }
@@ -251,7 +249,7 @@ mod tests {
 		let bridge = Bridge {
 			path: path.clone(),
 			database: Database::default(),
-			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositConfirm(1), BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawConfirm(3)]),
+			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositConfirm(1), BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawRelay(3)]),
 		};
 
 		let mut event_loop = Core::new().unwrap();

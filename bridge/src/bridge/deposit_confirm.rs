@@ -46,8 +46,8 @@ enum State<T: Transport> {
 	// Waiting for all calls to the Home contract's `submitSignature()`
 	// function to finish.
 	WaitingOnSubmitSignatures {
-		 future: SubmitSignaturesFuture<T>,
-		 last_block_checked: u64,
+		future: SubmitSignaturesFuture<T>,
+		last_block_checked: u64,
 	},
 	// All calls to the Home Contract's `submitSignature()` function
 	// have finished. Yields the block number for the last block
@@ -73,19 +73,17 @@ pub fn create_deposit_confirm<T: Transport + Clone>(
 	home_gas_price: Arc<RwLock<u64>>
 ) -> DepositConfirm<T>
 {
-	let home_config = &app.config.home;
-	
-	let deposit_event_filter = create_deposit_filter(
+	let deposit_log_filter = create_deposit_filter(
 		&app.home_bridge,
 		init.home_contract_address
 	);
 
 	let logs_init = LogStreamInit {
 		after: init.checked_deposit_confirm,
-		request_timeout: home_config.request_timeout,
-		poll_interval: home_config.poll_interval,
-		confirmations: home_config.required_confirmations,
-		filter: deposit_event_filter,
+		request_timeout: app.config.home.request_timeout,
+		poll_interval: app.config.home.poll_interval,
+		confirmations: app.config.home.required_confirmations,
+		filter: deposit_log_filter,
 	};
 
 	let deposit_log_stream = log_stream(
@@ -111,8 +109,8 @@ impl<T: Transport> Stream for DepositConfirm<T> {
 
 	fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 		let app = &self.app;
-		let home_config = app.config.home.clone();
-		let home_conn = app.connections.home;
+		let home_config = &app.config.home;
+		let home_conn = &app.connections.home;
 		let home_contract = &app.home_bridge;
 		let home_contract_address = self.home_contract_address;
 		let home_chain_id = self.home_chain_id;
@@ -140,17 +138,17 @@ impl<T: Transport> Stream for DepositConfirm<T> {
 					let n_new_deposits = logs.len();
 					info!("got {} new deposits to sign", n_new_deposits);
 
-					let mut messages: Vec<Vec<u8>> = logs.into_iter()
+					let mut messages = logs.into_iter()
 						.map(|log| {
 							info!(
 								"deposit is ready for signature submission. tx hash {}",
 								log.transaction_hash.unwrap()
 							);
-
-							MessageToMainnet::from_home_deposit_log(log)
+							
+							MessageToMainnet::from_deposit_log(log)
 								.map(|msg| msg.to_bytes())
 						})
-						.collect()?;
+						.collect::<Result<Vec<Vec<u8>>, Error>>()?;
 
 					let signatures = messages.iter()
 						.map(|message| {
@@ -189,11 +187,11 @@ impl<T: Transport> Stream for DepositConfirm<T> {
 							send_transaction_with_nonce(
 								home_conn.clone(),
 								app.clone(),
-								home_config,
+								home_config.clone(),
 								tx,
 								home_chain_id,
-								SendRawTransaction(home_conn.clone()),
-							)    
+								SendRawTransaction(home_conn.clone())
+							)
 						})
 						.collect_vec();
 

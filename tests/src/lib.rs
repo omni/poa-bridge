@@ -136,11 +136,12 @@ macro_rules! test_app_stream {
 			use self::std::time::Duration;
 			use self::futures::{Future, Stream};
 			use self::bridge::app::{App, Connections};
+			use self::bridge::bridge::BridgeChecked;
 			use self::bridge::contracts::{foreign, home};
 			use self::bridge::config::{Config, Authorities, Node, NodeInfo, ContractConfig, Transactions, TransactionConfig, GasPriceSpeed};
 			use self::bridge::database::Database;
 			use ethcore::account_provider::AccountProvider;
-			
+
 			let home = $crate::MockedTransport {
 				requests: Default::default(),
 				expected_requests: vec![$($home_method),*].into_iter().zip(vec![$($home_req),*].into_iter()).map(Into::into).collect(),
@@ -171,6 +172,7 @@ macro_rules! test_app_stream {
 					gas_price_speed: GasPriceSpeed::Fast,
 					gas_price_timeout: Duration::from_secs(5),
 					default_gas_price: 0,
+					concurrent_http_requests: 64,
 				},
 				foreign: Node {
 					account: $foreign_acc.parse().unwrap(),
@@ -188,6 +190,7 @@ macro_rules! test_app_stream {
 					gas_price_speed: GasPriceSpeed::Fast,
 					gas_price_timeout: Duration::from_secs(5),
 					default_gas_price: 0,
+					concurrent_http_requests: 64,
 				},
 				authorities: Authorities {
 					accounts: $authorities_accs.iter().map(|a: &&str| a.parse().unwrap()).collect(),
@@ -213,9 +216,16 @@ macro_rules! test_app_stream {
 
 			let app = Arc::new(app);			
 			let stream = $init_stream(app, &$db);
-			let res = stream.collect().wait();
 
-			assert_eq!($expected, res.unwrap());
+			let res: Vec<u64> = stream.collect().wait().unwrap().iter()
+				.map(|checked| match *checked {
+					BridgeChecked::DepositConfirm(block) => block,
+					BridgeChecked::DepositRelay(block) => block,
+					BridgeChecked::WithdrawRelay(block) => block,
+				})
+				.collect();
+
+			assert_eq!($expected, res);
 
 			assert_eq!(
 				home.expected_requests.len(),

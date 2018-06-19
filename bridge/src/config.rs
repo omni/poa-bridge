@@ -88,7 +88,7 @@ use web3::types::U256;
 
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
-    pub nonce: Arc<RwLock<U256>>,
+	pub nonce: Arc<RwLock<U256>>,
 }
 
 impl Default for NodeInfo {
@@ -188,7 +188,7 @@ impl Transactions {
 			home_deploy: cfg.home_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			#[cfg(feature = "deploy")]
 			foreign_deploy: cfg.foreign_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
-			deposit_confirm: cfg.deposit_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
+			deposit_confirm: cfg.deposit_confirm.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			deposit_relay: cfg.deposit_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 			withdraw_relay: cfg.withdraw_relay.map(TransactionConfig::from_load_struct).unwrap_or_default(),
 		}
@@ -223,10 +223,10 @@ pub struct Authorities {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GasPriceSpeed {
-    Instant,
-    Fast,
-    Standard,
-    Slow,
+	Instant,
+	Fast,
+	Standard,
+	Slow,
 }
 
 impl FromStr for GasPriceSpeed {
@@ -329,19 +329,16 @@ mod load {
 #[cfg(test)]
 mod tests {
 	use std::time::Duration;
-	#[cfg(feature = "deploy")]
-	use rustc_hex::FromHex;
 	use super::{Config, Node, Transactions, Authorities};
 	#[cfg(feature = "deploy")]
 	use super::ContractConfig;
-	#[cfg(feature = "deploy")]
-	use super::TransactionConfig;
-	use super::{DEFAULT_TIMEOUT, DEFAULT_GAS_PRICE_SPEED, DEFAULT_GAS_PRICE_TIMEOUT_SECS, DEFAULT_GAS_PRICE_WEI};
+	use super::{DEFAULT_CONCURRENCY, DEFAULT_TIMEOUT, DEFAULT_GAS_PRICE_SPEED, DEFAULT_GAS_PRICE_TIMEOUT_SECS, DEFAULT_GAS_PRICE_WEI};
 
 	#[test]
 	fn load_full_setup_from_str() {
 		let toml = r#"
 keystore = "/keys"
+estimated_gas_cost_of_withdraw = 0
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -368,6 +365,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				contract: ContractConfig { bin: vec![].into() },
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
@@ -383,6 +381,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				contract: ContractConfig { bin: vec![].into() },
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -403,6 +402,7 @@ required_signatures = 2
 				required_signatures: 2,
 			},
 			keystore: "/keys/".into(),
+			estimated_gas_cost_of_withdraw: 0,
 		};
 
 		let config = Config::load_from_str(toml, true).unwrap();
@@ -413,6 +413,7 @@ required_signatures = 2
 	fn load_minimal_setup_from_str() {
 		let toml = r#"
 keystore = "/keys/"
+estimated_gas_cost_of_withdraw = 0
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
@@ -431,6 +432,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				contract: ContractConfig { bin: vec![].into() },
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -446,6 +448,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				contract: ContractConfig { bin: vec![].into() },
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -466,6 +469,7 @@ required_signatures = 2
 				required_signatures: 2,
 			},
 			keystore: "/keys/".into(),
+			estimated_gas_cost_of_withdraw: 0,
 		};
 
 		let config = Config::load_from_str(toml, true).unwrap();

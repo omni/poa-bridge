@@ -1,3 +1,4 @@
+/*
 use std::sync::Arc;
 use futures::{Future, Poll};
 #[cfg(feature = "deploy")]
@@ -126,7 +127,7 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 						foreign_deploy: Some(test_receipt.block_number.low_u64()),
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
 						checked_deposit_confirm: main_receipt.block_number.low_u64(),
-                        checked_withdraw_relay: test_receipt.block_number.low_u64(),
+						checked_withdraw_relay: test_receipt.block_number.low_u64(),
 						checked_withdraw_confirm: test_receipt.block_number.low_u64(),
 					};
 					return Ok(Deployed::New(database).into())
@@ -138,3 +139,4 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 		}
 	}
 }
+/*
