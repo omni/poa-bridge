@@ -120,6 +120,7 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 		let contract = self.home_contract.clone();
 		let home = &self.app.config.home;
 		let t = &self.app.connections.home;
+		let t_url = &self.app.connections.home_url;
 		let chain_id = self.home_chain_id;
 
 		loop {
@@ -232,7 +233,8 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 									nonce: U256::zero(),
 									action: Action::Call(contract),
 								};
-							    api::send_transaction_with_nonce(t.clone(), app.clone(), home.clone(), tx, chain_id, SendRawTransaction(t.clone()))
+							    api::send_transaction_with_nonce(t.clone(), t_url.clone(), app.clone(),
+							    	home.clone(), tx, chain_id, SendRawTransaction(t.clone()))
 							}).collect_vec();
 
 					info!("relaying {} withdraws", len);

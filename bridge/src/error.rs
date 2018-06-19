@@ -66,6 +66,14 @@ error_chain! {
 		    description("config error")
 		    display("{}", err)
 		}
+		HomeRpcConnection(err: web3::Error) {
+			description("Cannot connect to home RPC node")
+			display("Cannot connect to home RPC node: {:?}", err),
+		}
+		ForeignRpcConnection(err: web3::Error) {
+			description("Cannot connect to foreign RPC node")
+			display("Cannot connect to foreign RPC node: {:?}", err),
+		}
 	}
 }
 

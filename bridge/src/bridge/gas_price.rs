@@ -143,7 +143,7 @@ mod tests {
 	use super::*;
 	use error::{Error, ErrorKind};
 	use futures::{Async, future::{err, ok, FutureResult}};
-	use config::{Node, NodeInfo, DEFAULT_CONCURRENCY};
+	use config::{Node, NodeInfo, DEFAULT_CONCURRENCY, RpcUrl};
 	use tokio_timer::Timer;
 	use std::time::Duration;
 	use std::path::PathBuf;
@@ -168,8 +168,8 @@ mod tests {
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
-			rpc_host: "https://rpc".into(),
-			rpc_port: 443,
+			primary_rpc: RpcUrl { host: "https://rpc".into(), port: 443 },
+			failover_rpc: None,
 			password: PathBuf::from("password"),
 			info: NodeInfo::default(),
 			gas_price_oracle_url: Some("https://gas.price".into()),
@@ -211,8 +211,10 @@ mod tests {
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
-			rpc_host: "https://rpc".into(),
-			rpc_port: 443,
+			// rpc_host: "https://rpc".into(),
+			// rpc_port: 443,
+			primary_rpc: RpcUrl { host: "https://rpc".into(), port: 443 },
+			failover_rpc: None,
 			password: PathBuf::from("password"),
 			info: NodeInfo::default(),
 			gas_price_oracle_url: Some("https://gas.price".into()),
@@ -254,8 +256,8 @@ mod tests {
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
-			rpc_host: "https://rpc".into(),
-			rpc_port: 443,
+			primary_rpc: RpcUrl { host: "https://rpc".into(), port: 443 },
+			failover_rpc: None,
 			password: PathBuf::from("password"),
 			info: NodeInfo::default(),
 			gas_price_oracle_url: Some("https://gas.price".into()),
@@ -296,8 +298,8 @@ mod tests {
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
-			rpc_host: "https://rpc".into(),
-			rpc_port: 443,
+			primary_rpc: RpcUrl { host: "https://rpc".into(), port: 443 },
+			failover_rpc: None,
 			password: PathBuf::from("password"),
 			info: NodeInfo::default(),
 			gas_price_oracle_url: Some("https://gas.price".into()),
@@ -338,8 +340,8 @@ mod tests {
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
-			rpc_host: "https://rpc".into(),
-			rpc_port: 443,
+			primary_rpc: RpcUrl { host: "https://rpc".into(), port: 443 },
+			failover_rpc: None,
 			password: PathBuf::from("password"),
 			info: NodeInfo::default(),
 			gas_price_oracle_url: Some("https://gas.price".into()),

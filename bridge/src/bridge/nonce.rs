@@ -5,7 +5,7 @@ use web3::types::{U256, H256, Bytes};
 use ethcore_transaction::Transaction;
 use api::{self, ApiCall};
 use error::{Error, ErrorKind};
-use config::Node;
+use config::{Node, RpcUrlKind};
 use transaction::prepare_raw_transaction;
 use app::App;
 use std::sync::Arc;
@@ -32,6 +32,8 @@ enum NonceCheckState<T: Transport, S: TransactionSender> {
 pub struct NonceCheck<T: Transport, S: TransactionSender> {
 	app: Arc<App<T>>,
 	transport: T,
+	/// Used for logging:
+	rpc_url: RpcUrlKind,
 	state: NonceCheckState<T, S>,
 	node: Node,
 	transaction: Transaction,
@@ -48,11 +50,14 @@ impl<T: Transport, S: TransactionSender> Debug for NonceCheck<T, S> {
 
 }
 
-pub fn send_transaction_with_nonce<T: Transport + Clone, S: TransactionSender>(transport: T, app: Arc<App<T>>, node: Node, transaction: Transaction, chain_id: u64, sender: S) -> NonceCheck<T, S> {
+pub fn send_transaction_with_nonce<T, S>(transport: T, rpc_url: RpcUrlKind, app: Arc<App<T>>,
+		node: Node, transaction: Transaction, chain_id: u64, sender: S) -> NonceCheck<T, S>
+		where T: Transport + Clone, S: TransactionSender {
 	NonceCheck {
 		app,
 		state: NonceCheckState::Ready,
 		transport,
+		rpc_url,
 		node,
 		transaction,
 		chain_id,
@@ -108,7 +113,8 @@ impl<T: Transport, S: TransactionSender> Future for NonceCheck<T, S> {
 									NonceCheckState::Reacquire
 								} else if rpc_err.code == rpc::ErrorCode::ServerError(-32010) && rpc_err.message.ends_with("already imported.") {
 									let hash = self.transaction.hash(Some(self.chain_id));
-									info!("{} already imported on {}, skipping", hash, self.node.rpc_host);
+									// info!("{} already imported on {}, skipping", hash, self.node.rpc_host);
+									info!("{} already imported on {}, skipping", hash, self.rpc_url);
 									return Ok(Async::Ready(self.sender.ignore(hash)))
 								} else {
 									return Err(ErrorKind::Web3(web3::error::ErrorKind::Rpc(rpc_err).into()).into());

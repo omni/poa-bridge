@@ -100,13 +100,21 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 								data: test_data.into(),
 							};
 
-							let main_future = api::send_transaction_with_nonce(self.app.connections.home.clone(), self.app.clone(),
-																			   self.app.config.home.clone(), main_tx, self.home_chain_id,
-																			   TransactionWithConfirmation(self.app.connections.home.clone(), self.app.config.home.poll_interval, self.app.config.home.required_confirmations));
+							let main_future = api::send_transaction_with_nonce(
+								self.app.connections.home.clone(), self.app.connections.home_url.clone(),
+								self.app.clone(), self.app.config.home.clone(), main_tx, self.home_chain_id,
+								TransactionWithConfirmation(self.app.connections.home.clone(),
+									self.app.config.home.poll_interval,
+									self.app.config.home.required_confirmations)
+							);
 
-							let test_future = api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(),
-																			   self.app.config.foreign.clone(), test_tx, self.foreign_chain_id,
-																			   TransactionWithConfirmation(self.app.connections.foreign.clone(), self.app.config.foreign.poll_interval, self.app.config.foreign.required_confirmations));
+							let test_future = api::send_transaction_with_nonce(
+								self.app.connections.foreign.clone(), self.app.connections.foreign_url.clone(),
+								self.app.clone(), self.app.config.foreign.clone(), test_tx, self.foreign_chain_id,
+								TransactionWithConfirmation(self.app.connections.foreign.clone(),
+									self.app.config.foreign.poll_interval,
+									self.app.config.foreign.required_confirmations)
+							);
 
 							DeployState::Deploying(main_future.join(test_future))
 						}

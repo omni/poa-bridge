@@ -1,3 +1,4 @@
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
@@ -72,8 +73,12 @@ pub struct Node {
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
-	pub rpc_host: String,
-	pub rpc_port: u16,
+	// pub primary_rpc_host: String,
+	// pub primary_rpc_port: u16,
+	// pub failover_rpc_host: Option<String>,
+	// pub failover_rpc_port: Option<u16>,
+	pub primary_rpc: RpcUrl,
+	pub failover_rpc: Option<RpcUrl>,
 	pub password: PathBuf,
 	pub info: NodeInfo,
 	pub gas_price_oracle_url: Option<String>,
@@ -122,15 +127,43 @@ impl Node {
 		let default_gas_price = node.default_gas_price.unwrap_or(DEFAULT_GAS_PRICE_WEI);
 		let concurrent_http_requests = node.concurrent_http_requests.unwrap_or(DEFAULT_CONCURRENCY);
 
-		let rpc_host = node.rpc_host.unwrap();
-
-		if !rpc_host.starts_with("https://") {
-			if !allow_insecure_rpc_endpoints {
-				return Err(ErrorKind::ConfigError(format!("RPC endpoints must use TLS, {} doesn't", rpc_host)).into());
-			} else {
-				warn!("RPC endpoints must use TLS, {} doesn't", rpc_host);
+		// Ensures host url scheme is correct.
+		fn check_host(host: String, allow_insecure_rpc_endpoints: bool) -> Result<String, Error> {
+			if !host.starts_with("https://") {
+				if !allow_insecure_rpc_endpoints {
+					return Err(ErrorKind::ConfigError(format!("RPC endpoints must use TLS, {} doesn't", host)).into());
+				} else {
+					warn!("RPC endpoints must use TLS, {} doesn't", host);
+				}
 			}
+			Ok(host)
 		}
+
+		// Check primary RPC host:
+		let primary_rpc_host = check_host(
+			node.primary_rpc_host.expect("Primary RPC host not specified."),
+			allow_insecure_rpc_endpoints)?;
+
+		let primary_rpc = RpcUrl {
+			host: primary_rpc_host,
+			port: node.primary_rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+		};
+
+		// If failover RPC host is defined, determine port:
+		let failover_rpc = match node.failover_rpc_host {
+			Some(host) => {
+				Some(RpcUrl {
+					host: check_host(host, allow_insecure_rpc_endpoints)?,
+					port: node.failover_rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+				})
+			},
+			None => {
+				// Ensure port is not specified without a host:
+				assert!(node.failover_rpc_port.is_none(),
+					"Failover RPC port specified without a failover host.");
+				None
+			},
+		};
 
 		let result = Node {
 			account: node.account,
@@ -146,8 +179,8 @@ impl Node {
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
-			rpc_host,
-			rpc_port: node.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+			primary_rpc,
+			failover_rpc,
 			password: node.password,
 			info: Default::default(),
 			gas_price_oracle_url,
@@ -257,6 +290,45 @@ impl GasPriceSpeed {
 	}
 }
 
+/// A RPC url with its kind, primary or failover.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RpcUrlKind {
+	Primary(RpcUrl),
+	Failover(RpcUrl),
+}
+
+impl RpcUrlKind {
+	/// Returns the contained url, regarless of variant.
+	pub fn url(&self) -> &RpcUrl {
+		match self {
+    		RpcUrlKind::Primary(ref u) => u,
+    		RpcUrlKind::Failover(ref u) => u,
+    	}
+	}
+}
+
+impl fmt::Display for RpcUrlKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    	match self {
+    		RpcUrlKind::Primary(u) => write!(f, "Primary({})", u),
+    		RpcUrlKind::Failover(u) => write!(f, "Failover({})", u),
+    	}
+    }
+}
+
+/// A host name and port for an RPC service.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RpcUrl {
+	pub host: String,
+	pub port: u16,
+}
+
+impl fmt::Display for RpcUrl {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.host, self.port)
+    }
+}
+
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
@@ -285,8 +357,10 @@ mod load {
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
-		pub rpc_host: Option<String>,
-		pub rpc_port: Option<u16>,
+		pub primary_rpc_host: Option<String>,
+		pub primary_rpc_port: Option<u16>,
+		pub failover_rpc_host: Option<String>,
+		pub failover_rpc_port: Option<u16>,
 		pub password: PathBuf,
 		pub gas_price_oracle_url: Option<String>,
 		pub gas_price_speed: Option<String>,
@@ -334,7 +408,7 @@ mod tests {
 	use std::time::Duration;
 	#[cfg(feature = "deploy")]
 	use rustc_hex::FromHex;
-	use super::{Config, Node, Transactions, Authorities};
+	use super::{Config, Node, Transactions, Authorities, RpcUrl};
 	#[cfg(feature = "deploy")]
 	use super::ContractConfig;
 	#[cfg(feature = "deploy")]
@@ -350,14 +424,14 @@ keystore = "/keys"
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
 poll_interval = 2
 required_confirmations = 100
-rpc_host = "127.0.0.1"
-rpc_port = 8545
+primary_rpc_host = "127.0.0.1"
+primary_rpc_port = 8545
 password = "password"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-rpc_host = "127.0.0.1"
-rpc_port = 8545
+primary_rpc_host = "127.0.0.1"
+primary_rpc_port = 8545
 password = "password"
 
 [authorities]
@@ -374,8 +448,8 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
-				rpc_host: "127.0.0.1".into(),
-				rpc_port: 8545,
+				primary_rpc: RpcUrl { host: "127.0.0.1".into(), port: 8545 },
+				failover_rpc: None,
 				password: "password".into(),
 				info: Default::default(),
 				gas_price_oracle_url: None,
@@ -389,8 +463,83 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
-				rpc_host: "127.0.0.1".into(),
-				rpc_port: 8545,
+				primary_rpc: RpcUrl { host: "127.0.0.1".into(), port: 8545 },
+				failover_rpc: None,
+				password: "password".into(),
+				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
+			},
+			authorities: Authorities {
+				#[cfg(feature = "deploy")]
+				accounts: vec![
+				],
+				required_signatures: 2,
+			},
+			keystore: "/keys/".into(),
+		};
+
+		let config = Config::load_from_str(toml, true).unwrap();
+		assert_eq!(expected, config);
+	}
+
+	#[test]
+	fn load_full_setup_from_str_failover() {
+		let toml = r#"
+keystore = "/keys"
+
+[home]
+account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
+poll_interval = 2
+required_confirmations = 100
+primary_rpc_host = "127.0.0.1"
+primary_rpc_port = 8545
+failover_rpc_host = "127.0.0.2"
+failover_rpc_port = 8546
+password = "password"
+
+[foreign]
+account = "0x0000000000000000000000000000000000000001"
+primary_rpc_host = "127.0.0.3"
+primary_rpc_port = 8547
+failover_rpc_host = "127.0.0.4"
+failover_rpc_port = 8548
+password = "password"
+
+[authorities]
+required_signatures = 2
+
+[transactions]
+"#;
+
+		#[allow(unused_mut)]
+		let mut expected = Config {
+			txs: Transactions::default(),
+			home: Node {
+				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				poll_interval: Duration::from_secs(2),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
+				required_confirmations: 100,
+				primary_rpc: RpcUrl { host: "127.0.0.1".into(), port: 8545 },
+				failover_rpc: Some(RpcUrl { host: "127.0.0.2".into(), port: 8546 }),
+				password: "password".into(),
+				info: Default::default(),
+				gas_price_oracle_url: None,
+				gas_price_speed: DEFAULT_GAS_PRICE_SPEED,
+				gas_price_timeout: Duration::from_secs(DEFAULT_GAS_PRICE_TIMEOUT_SECS),
+				default_gas_price: DEFAULT_GAS_PRICE_WEI,
+				concurrent_http_requests: DEFAULT_CONCURRENCY,
+			},
+			foreign: Node {
+				account: "0000000000000000000000000000000000000001".into(),
+				poll_interval: Duration::from_secs(1),
+				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
+				required_confirmations: 12,
+				primary_rpc: RpcUrl { host: "127.0.0.3".into(), port: 8547 },
+				failover_rpc: Some(RpcUrl { host: "127.0.0.4".into(), port: 8548 }),
 				password: "password".into(),
 				info: Default::default(),
 				gas_price_oracle_url: None,
@@ -419,12 +568,12 @@ keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
-rpc_host = ""
+primary_rpc_host = ""
 password = "password"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
-rpc_host = ""
+primary_rpc_host = ""
 password = "password"
 
 [authorities]
@@ -437,8 +586,8 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
-				rpc_host: "".into(),
-				rpc_port: 8545,
+				primary_rpc: RpcUrl { host: "".into(), port: 8545 },
+				failover_rpc: None,
 				password: "password".into(),
 				info: Default::default(),
 				gas_price_oracle_url: None,
@@ -452,8 +601,8 @@ required_signatures = 2
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
-				rpc_host: "".into(),
-				rpc_port: 8545,
+				primary_rpc: RpcUrl { host: "".into(), port: 8545 },
+				failover_rpc: None,
 				password: "password".into(),
 				info: Default::default(),
 				gas_price_oracle_url: None,
