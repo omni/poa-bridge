@@ -83,13 +83,13 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		request_timeout: app.config.foreign.request_timeout,
 		poll_interval: app.config.foreign.poll_interval,
 		confirmations: app.config.foreign.required_confirmations,
-		filter: collected_signatures_filter(&app.foreign_bridge, init.foreign_contract_address),
+		filter: collected_signatures_filter(&app.foreign_bridge, app.config.foreign.contract_address),
 	};
 
 	WithdrawRelay {
 		logs: api::log_stream(app.connections.foreign.clone(), app.timer.clone(), logs_init),
-		home_contract: init.home_contract_address,
-		foreign_contract: init.foreign_contract_address,
+		home_contract: app.config.home.contract_address,
+		foreign_contract: app.config.foreign.contract_address,
 		state: WithdrawRelayState::Wait,
 		app,
 		home_balance,

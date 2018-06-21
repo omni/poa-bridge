@@ -176,7 +176,7 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 		Deployed::New(database) => {
 			info!(target: "bridge", "Deployed new bridge contracts");
 			info!(target: "bridge", "\n\n{}\n", database);
-			database.store(fs::File::create(&app.database_path)?)?;
+			database.save(fs::File::create(&app.database_path)?)?;
 			database
 		},
 		Deployed::Existing(database) => {

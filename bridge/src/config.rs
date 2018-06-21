@@ -69,7 +69,7 @@ pub struct Node {
 	pub account: Address,
 	#[cfg(feature = "deploy")]
 	pub contract: ContractConfig,
-	pub contract_address: Option<Address>,
+	pub contract_address: Address,
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
@@ -133,6 +133,12 @@ impl Node {
 			}
 		}
 
+		let contract_address = node.contract_address.ok_or(ErrorKind::ConfigError(
+				"Contract address not specified. Please define the 'contract_address' key \
+				within both the '[home]' and '[foreign]' tables in the toml config file. See \
+				'https://github.com/poanetwork/poa-bridge/blob/master/README.md' \
+				for more.".to_owned()))?;
+
 		let node = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
@@ -144,7 +150,7 @@ impl Node {
 					Bytes(read.from_hex()?)
 				}
 			},
-			contract_address: node.contract_address,
+			contract_address: contract_address,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
@@ -158,14 +164,6 @@ impl Node {
 			default_gas_price,
 			concurrent_http_requests,
 		};
-
-		// Ensure that the contract address is specified for non-deploy builds:
-		if cfg!(not(feature = "deploy")) && node.contract_address.is_none() {
-			return Err(ErrorKind::ConfigError("Contract address not specified. Please define the \
-				'contract_address' key within both the '[home]' and '[foreign]' tables in the \
-				toml config file. See 'https://github.com/poanetwork/poa-bridge/blob/master/README.md' \
-				for more.".into()).into());
-		}
 
 		Ok(node)
 	}
@@ -384,7 +382,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
@@ -400,7 +398,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db8".into()),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db8".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -451,7 +449,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
-				contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -467,7 +465,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
-				contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db8".into()),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db8".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,

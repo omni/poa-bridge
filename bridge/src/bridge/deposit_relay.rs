@@ -49,11 +49,11 @@ pub fn create_deposit_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Datab
 		request_timeout: app.config.home.request_timeout,
 		poll_interval: app.config.home.poll_interval,
 		confirmations: app.config.home.required_confirmations,
-		filter: deposits_filter(&app.home_bridge, init.home_contract_address),
+		filter: deposits_filter(&app.home_bridge, app.config.home.contract_address),
 	};
 	DepositRelay {
 		logs: api::log_stream(app.connections.home.clone(), app.timer.clone(), logs_init),
-		foreign_contract: init.foreign_contract_address,
+		foreign_contract: app.config.foreign.contract_address,
 		state: DepositRelayState::Wait,
 		app,
 		foreign_balance,
@@ -92,7 +92,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 					let gas = U256::from(self.app.config.txs.deposit_relay.gas);
 					let gas_price = U256::from(*self.foreign_gas_price.read().unwrap());
 					let balance_required = gas * gas_price * U256::from(item.logs.len());
-					
+
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}

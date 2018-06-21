@@ -165,7 +165,7 @@ mod tests {
 	fn errored_request() {
 		let node = Node {
 			account: Address::new(),
-			contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+			contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -209,7 +209,7 @@ mod tests {
 	fn bad_json() {
 		let node = Node {
 			account: Address::new(),
-			contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+			contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -253,7 +253,7 @@ mod tests {
 	fn unexpected_json() {
 		let node = Node {
 			account: Address::new(),
-			contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+			contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -296,7 +296,7 @@ mod tests {
 	fn non_object_json() {
 		let node = Node {
 			account: Address::new(),
-			contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+			contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,
@@ -339,7 +339,7 @@ mod tests {
 	fn correct_json() {
 		let node = Node {
 			account: Address::new(),
-			contract_address: Some("49edf201c1e139282643d5e7c6fb0c7219ad1db7".into()),
+			contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 			request_timeout: Duration::from_secs(5),
 			poll_interval: Duration::from_secs(1),
 			required_confirmations: 0,

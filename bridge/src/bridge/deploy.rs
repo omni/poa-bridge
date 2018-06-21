@@ -66,15 +66,7 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 		loop {
 			let _next_state = match self.state {
 				DeployState::CheckIfNeeded => {
-					let db = Database::load_user_defined(
-							&self.app.database_path,
-							self.app.config.home.contract_address.expect("Home contract \
-								address must be specified within config toml."),
-							self.app.config.foreign.contract_address.expect("Foreign contract \
-								address must be specified within config toml."))
-						.map_err(ErrorKind::from);
-
-					match db {
+					match Database::load(&self.app.database_path).map_err(ErrorKind::from) {
 						Ok(database) => return Ok(Deployed::Existing(database).into()),
 						Err(ErrorKind::MissingFile(_e)) => {
 							#[cfg(feature = "deploy")] {
@@ -131,9 +123,15 @@ impl<T: Transport + Clone> Future for Deploy<T> {
 				DeployState::Deploying(ref mut future) => {
 					let (main_receipt, test_receipt) = try_ready!(future.poll());
 
+					// The `deploy` feature is being removed so this shouldn't
+					// matter but the following lines have been left here as a
+					// reminder that contract addresses are no longer stored
+					// within `Database`.
+					//
+					// let _ = main_receipt.contract_address.expect("contract creation receipt must have an address; qed")
+					// let _ = test_receipt.contract_address.expect("contract creation receipt must have an address; qed")
+
 					let database = Database {
-						home_contract_address: main_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
-						foreign_contract_address: test_receipt.contract_address.expect("contract creation receipt must have an address; qed"),
 						home_deploy: Some(main_receipt.block_number.low_u64()),
 						foreign_deploy: Some(test_receipt.block_number.low_u64()),
 						checked_deposit_relay: main_receipt.block_number.low_u64(),
