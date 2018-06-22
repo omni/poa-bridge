@@ -49,7 +49,7 @@ impl Database {
 	/// An error will be returned if the `s` contains keys for
 	/// 'home_contract_address' or 'foreign_contract_address'.
 	fn from_str<S: AsRef<str>>(s: S) -> Result<Database, Error> {
-		let db_parsed: parse::Database = toml::from_str(s.as_ref())
+		let db_parsed: Database = toml::from_str(s.as_ref())
 			.chain_err(|| "Cannot parse database file")?;
 
 		Ok(Database {
@@ -65,36 +65,6 @@ impl Database {
 	pub fn save<W: Write>(&self, mut writer: W) -> Result<(), Error> {
 		writer.write_all(self.to_string().as_bytes())?;
 		Ok(())
-	}
-}
-
-mod parse {
-	#[cfg(test)]
-	use std::fmt;
-	#[cfg(test)]
-	use toml;
-
-	/// Parsed application "database".
-	#[derive(Debug, Deserialize, Serialize)]
-	#[serde(deny_unknown_fields)]
-	pub struct Database {
-		/// Number of block at which home contract has been deployed.
-		pub home_deploy: Option<u64>,
-		/// Number of block at which foreign contract has been deployed.
-		pub foreign_deploy: Option<u64>,
-		/// Number of last block which has been checked for deposit relays.
-		pub checked_deposit_relay: u64,
-		/// Number of last block which has been checked for withdraw relays.
-		pub checked_withdraw_relay: u64,
-		/// Number of last block which has been checked for withdraw confirms.
-		pub checked_withdraw_confirm: u64,
-	}
-
-	#[cfg(test)]
-	impl fmt::Display for Database {
-		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-			f.write_str(&toml::to_string(self).expect("serialization can't fail; qed"))
-		}
 	}
 }
 
