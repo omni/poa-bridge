@@ -41,12 +41,12 @@ impl Config {
 	}
 
 	fn load_from_str(s: &str, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
-		let config: load::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
+		let config: parse::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
 		Config::from_load_struct(config, allow_insecure_rpc_endpoints)
 	}
 
-	fn from_load_struct(config: load::Config, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
-		let result = Config {
+	fn from_load_struct(config: parse::Config, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
+		let config = Config {
 			home: Node::from_load_struct(config.home, allow_insecure_rpc_endpoints)?,
 			foreign: Node::from_load_struct(config.foreign, allow_insecure_rpc_endpoints)?,
 			authorities: Authorities {
@@ -60,7 +60,7 @@ impl Config {
 			keystore: config.keystore,
 		};
 
-		Ok(result)
+		Ok(config)
 	}
 }
 
@@ -69,6 +69,7 @@ pub struct Node {
 	pub account: Address,
 	#[cfg(feature = "deploy")]
 	pub contract: ContractConfig,
+	pub contract_address: Address,
 	pub request_timeout: Duration,
 	pub poll_interval: Duration,
 	pub required_confirmations: usize,
@@ -106,7 +107,7 @@ impl PartialEq for NodeInfo {
 }
 
 impl Node {
-	fn from_load_struct(node: load::Node, allow_insecure_rpc_endpoints: bool) -> Result<Node, Error> {
+	fn from_load_struct(node: parse::Node, allow_insecure_rpc_endpoints: bool) -> Result<Node, Error> {
 		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
 
 		let gas_price_speed = match node.gas_price_speed {
@@ -132,7 +133,13 @@ impl Node {
 			}
 		}
 
-		let result = Node {
+		let contract_address = node.contract_address.ok_or(ErrorKind::ConfigError(
+				"Contract address not specified. Please define the 'contract_address' key \
+				within both the '[home]' and '[foreign]' tables in the toml config file. See \
+				'https://github.com/poanetwork/poa-bridge/blob/master/README.md' \
+				for more.".to_owned()))?;
+
+		let node = Node {
 			account: node.account,
 			#[cfg(feature = "deploy")]
 			contract: ContractConfig {
@@ -143,6 +150,7 @@ impl Node {
 					Bytes(read.from_hex()?)
 				}
 			},
+			contract_address: contract_address,
 			request_timeout: Duration::from_secs(node.request_timeout.unwrap_or(DEFAULT_TIMEOUT)),
 			poll_interval: Duration::from_secs(node.poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL)),
 			required_confirmations: node.required_confirmations.unwrap_or(DEFAULT_CONFIRMATIONS),
@@ -157,7 +165,7 @@ impl Node {
 			concurrent_http_requests,
 		};
 
-		Ok(result)
+		Ok(node)
 	}
 
 	pub fn password(&self) -> Result<String, Error> {
@@ -182,7 +190,7 @@ pub struct Transactions {
 }
 
 impl Transactions {
-	fn from_load_struct(cfg: load::Transactions) -> Self {
+	fn from_load_struct(cfg: parse::Transactions) -> Self {
 		Transactions {
 			#[cfg(feature = "deploy")]
 			home_deploy: cfg.home_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
@@ -202,7 +210,7 @@ pub struct TransactionConfig {
 }
 
 impl TransactionConfig {
-	fn from_load_struct(cfg: load::TransactionConfig) -> Self {
+	fn from_load_struct(cfg: parse::TransactionConfig) -> Self {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
 			gas_price: cfg.gas_price.unwrap_or_default(),
@@ -260,7 +268,7 @@ impl GasPriceSpeed {
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
-mod load {
+mod parse {
 	use std::path::PathBuf;
 	use web3::types::Address;
 
@@ -282,6 +290,7 @@ mod load {
 		pub account: Address,
 		#[cfg(feature = "deploy")]
 		pub contract: ContractConfig,
+		pub contract_address: Option<Address>,
 		pub request_timeout: Option<u64>,
 		pub poll_interval: Option<u64>,
 		pub required_confirmations: Option<usize>,
@@ -348,6 +357,7 @@ keystore = "/keys"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
 poll_interval = 2
 required_confirmations = 100
 rpc_host = "127.0.0.1"
@@ -356,6 +366,7 @@ password = "password"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
 rpc_host = "127.0.0.1"
 rpc_port = 8545
 password = "password"
@@ -371,6 +382,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 				poll_interval: Duration::from_secs(2),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 100,
@@ -386,6 +398,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db8".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -419,11 +432,13 @@ keystore = "/keys/"
 
 [home]
 account = "0x1B68Cb0B50181FC4006Ce572cF346e596E51818b"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db7"
 rpc_host = ""
 password = "password"
 
 [foreign]
 account = "0x0000000000000000000000000000000000000001"
+contract_address = "0x49edf201c1e139282643d5e7c6fb0c7219ad1db8"
 rpc_host = ""
 password = "password"
 
@@ -434,6 +449,7 @@ required_signatures = 2
 			txs: Transactions::default(),
 			home: Node {
 				account: "1B68Cb0B50181FC4006Ce572cF346e596E51818b".into(),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db7".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,
@@ -449,6 +465,7 @@ required_signatures = 2
 			},
 			foreign: Node {
 				account: "0000000000000000000000000000000000000001".into(),
+				contract_address: "49edf201c1e139282643d5e7c6fb0c7219ad1db8".into(),
 				poll_interval: Duration::from_secs(1),
 				request_timeout: Duration::from_secs(DEFAULT_TIMEOUT),
 				required_confirmations: 12,

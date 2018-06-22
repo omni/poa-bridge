@@ -221,6 +221,7 @@ impl<'a, T: Transport + 'a> Stream for BridgeEventStream<'a, T> {
 #[cfg(test)]
 mod tests {
 	extern crate tempdir;
+
 	use self::tempdir::TempDir;
 	use database::Database;
 	use super::{Bridge, BridgeChecked};
@@ -244,6 +245,7 @@ mod tests {
 		let _ = event_loop.run(bridge.collect());
 
 		let db = Database::load(&path).unwrap();
+
 		assert_eq!(1, db.checked_deposit_relay);
 		assert_eq!(0, db.checked_withdraw_confirm);
 		assert_eq!(0, db.checked_withdraw_relay);
@@ -251,13 +253,15 @@ mod tests {
 		let bridge = Bridge {
 			path: path.clone(),
 			database: Database::default(),
-			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositRelay(2), BridgeChecked::WithdrawConfirm(3), BridgeChecked::WithdrawRelay(2)]),
+			event_stream: stream::iter_ok::<_, Error>(vec![BridgeChecked::DepositRelay(2),
+				BridgeChecked::WithdrawConfirm(3), BridgeChecked::WithdrawRelay(2)]),
 		};
 
 		let mut event_loop = Core::new().unwrap();
 		let _ = event_loop.run(bridge.collect());
 
 		let db = Database::load(&path).unwrap();
+
 		assert_eq!(2, db.checked_deposit_relay);
 		assert_eq!(3, db.checked_withdraw_confirm);
 		assert_eq!(2, db.checked_withdraw_relay);

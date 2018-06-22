@@ -143,14 +143,12 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 
 	info!(target:"bridge", "  using RPC connection");
 	let app = match App::new_http(config.clone(), &args.arg_database, &handle, running.clone()) {
-		Ok(app) => app,
+		Ok(app) => Arc::new(app),
 		Err(e) => {
 			warn!("Can't establish an RPC connection: {:?}", e);
 			return Err((ERR_CANNOT_CONNECT, e).into());
 		},
 	};
-
-	let app = Arc::new(app);
 
 	info!(target: "bridge", "Acquiring home & foreign chain ids");
 	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");
