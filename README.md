@@ -117,7 +117,7 @@ withdraw_confirm = { gas = 3000000 }
 #### home/foreign options
 
 - `home/foreign.account` - authority address on the home (**required**)
-- `home/foreign.contract_address` - The address of the bridge contract on home/foreign chain. (**required** unless the configuration is being used in a deploy build [FIXME: clarify this description]).
+- `home/foreign.contract_address` - The address of the bridge contract on home/foreign chain. (**required**).
 - `home/foreign.rpc_host` - RPC host (**required**)
 - `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
 - `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)

@@ -22,7 +22,6 @@ pub enum Deployed {
 	Existing(Database),
 }
 
-// FIXME: Needs documentation. What do these states signify?
 #[cfg(feature = "deploy")]
 enum DeployState<T: Transport + Clone> {
 	CheckIfNeeded,

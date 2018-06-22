@@ -41,11 +41,11 @@ impl Config {
 	}
 
 	fn load_from_str(s: &str, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
-		let config: parsed::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
+		let config: parse::Config = toml::from_str(s).chain_err(|| "Cannot parse config")?;
 		Config::from_load_struct(config, allow_insecure_rpc_endpoints)
 	}
 
-	fn from_load_struct(config: parsed::Config, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
+	fn from_load_struct(config: parse::Config, allow_insecure_rpc_endpoints: bool) -> Result<Config, Error> {
 		let config = Config {
 			home: Node::from_load_struct(config.home, allow_insecure_rpc_endpoints)?,
 			foreign: Node::from_load_struct(config.foreign, allow_insecure_rpc_endpoints)?,
@@ -107,7 +107,7 @@ impl PartialEq for NodeInfo {
 }
 
 impl Node {
-	fn from_load_struct(node: parsed::Node, allow_insecure_rpc_endpoints: bool) -> Result<Node, Error> {
+	fn from_load_struct(node: parse::Node, allow_insecure_rpc_endpoints: bool) -> Result<Node, Error> {
 		let gas_price_oracle_url = node.gas_price_oracle_url.clone();
 
 		let gas_price_speed = match node.gas_price_speed {
@@ -190,7 +190,7 @@ pub struct Transactions {
 }
 
 impl Transactions {
-	fn from_load_struct(cfg: parsed::Transactions) -> Self {
+	fn from_load_struct(cfg: parse::Transactions) -> Self {
 		Transactions {
 			#[cfg(feature = "deploy")]
 			home_deploy: cfg.home_deploy.map(TransactionConfig::from_load_struct).unwrap_or_default(),
@@ -210,7 +210,7 @@ pub struct TransactionConfig {
 }
 
 impl TransactionConfig {
-	fn from_load_struct(cfg: parsed::TransactionConfig) -> Self {
+	fn from_load_struct(cfg: parse::TransactionConfig) -> Self {
 		TransactionConfig {
 			gas: cfg.gas.unwrap_or_default(),
 			gas_price: cfg.gas_price.unwrap_or_default(),
@@ -268,7 +268,7 @@ impl GasPriceSpeed {
 /// Some config values may not be defined in `toml` file, but they should be specified at runtime.
 /// `load` module separates `Config` representation in file with optional from the one used
 /// in application.
-mod parsed {
+mod parse {
 	use std::path::PathBuf;
 	use web3::types::Address;
 

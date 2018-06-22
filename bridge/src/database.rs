@@ -49,7 +49,7 @@ impl Database {
 	/// An error will be returned if the `s` contains keys for
 	/// 'home_contract_address' or 'foreign_contract_address'.
 	fn from_str<S: AsRef<str>>(s: S) -> Result<Database, Error> {
-		let db_parsed: parsed::Database = toml::from_str(s.as_ref())
+		let db_parsed: parse::Database = toml::from_str(s.as_ref())
 			.chain_err(|| "Cannot parse database file")?;
 
 		Ok(Database {
@@ -68,7 +68,7 @@ impl Database {
 	}
 }
 
-mod parsed {
+mod parse {
 	#[cfg(test)]
 	use std::fmt;
 	#[cfg(test)]
