@@ -20,6 +20,16 @@ pub struct Database {
 	pub checked_withdraw_confirm: u64,
 }
 
+impl str::FromStr for Database {
+	type Err = Error;
+
+	/// Returns a new `Database` constructed from the parsed string `s`.
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		toml::from_str(s).chain_err(|| "Cannot parse database toml file/string")
+	}
+}
+
+
 impl fmt::Display for Database {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.write_str(&toml::to_string(self).expect("serialization can't fail; qed"))
@@ -40,25 +50,7 @@ impl Database {
 
 		let mut buffer = String::new();
 		file.read_to_string(&mut buffer)?;
-		Database::from_str(&buffer)
-	}
-
-	/// Returns a new `Database` constructed from the parsed string `s` and
-	/// the provided addresses.
-	///
-	/// An error will be returned if the `s` contains keys for
-	/// 'home_contract_address' or 'foreign_contract_address'.
-	fn from_str<S: AsRef<str>>(s: S) -> Result<Database, Error> {
-		let db_parsed: Database = toml::from_str(s.as_ref())
-			.chain_err(|| "Cannot parse database file")?;
-
-		Ok(Database {
-			home_deploy: db_parsed.home_deploy,
-			foreign_deploy: db_parsed.foreign_deploy,
-			checked_deposit_relay: db_parsed.checked_deposit_relay,
-			checked_withdraw_relay: db_parsed.checked_withdraw_relay,
-			checked_withdraw_confirm: db_parsed.checked_withdraw_confirm,
-		})
+		buffer.parse()
 	}
 
 	/// Writes a serialized `Database` to a writer.
@@ -91,7 +83,7 @@ checked_withdraw_confirm = 121
 			checked_withdraw_confirm: 121,
 		};
 
-		let database = Database::from_str(toml).unwrap();
+		let database = toml.parse().unwrap();
 		assert_eq!(expected, database);
 		let s = database.to_string();
 		assert!(s.contains(toml));
