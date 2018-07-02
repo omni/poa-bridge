@@ -92,7 +92,7 @@ impl<T: Transport> Stream for DepositRelay<T> {
 					let gas = U256::from(self.app.config.txs.deposit_relay.gas);
 					let gas_price = U256::from(*self.foreign_gas_price.read().unwrap());
 					let balance_required = gas * gas_price * U256::from(item.logs.len());
-
+					
 					if balance_required > *foreign_balance.as_ref().unwrap() {
 						return Err(ErrorKind::InsufficientFunds.into())
 					}
@@ -110,10 +110,8 @@ impl<T: Transport> Stream for DepositRelay<T> {
 								nonce: U256::zero(),
 								action: Action::Call(self.foreign_contract.clone()),
 							};
-							api::send_transaction_with_nonce(self.app.connections.foreign.clone(),
-								self.app.connections.foreign_url.clone(), self.app.clone(),
-								self.app.config.foreign.clone(), tx, self.foreign_chain_id,
-								SendRawTransaction(self.app.connections.foreign.clone()))
+							api::send_transaction_with_nonce(self.app.connections.foreign.clone(), self.app.clone(), self.app.config.foreign.clone(),
+															 tx, self.foreign_chain_id, SendRawTransaction(self.app.connections.foreign.clone()))
 						}).collect_vec();
 
 					info!("relaying {} deposits", len);
