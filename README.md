@@ -130,7 +130,6 @@ withdraw_confirm = { gas = 3000000 }
 #### authorities options
 
 - `authorities.account` - all authorities (**required**)
-- `authorities.required_signatures` - number of authorities signatures required to consider action final (**required**)
 
 #### transaction options
 

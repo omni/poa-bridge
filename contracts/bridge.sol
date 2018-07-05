@@ -400,7 +400,7 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
     event Withdraw(address recipient, uint256 value, uint256 homeGasPrice);
 
     /// Collected signatures which should be relayed to home chain.
-    event CollectedSignatures(address authorityResponsibleForRelay, bytes32 messageHash);
+    event CollectedSignatures(address authorityResponsibleForRelay, bytes32 messageHash, uint256 NumberOfCollectedSignatures);
 
     /// Event created when new token address is set up.
     event TokenAddress(address token);
@@ -415,11 +415,11 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
         require(_requiredSignatures != 0);
         require(_requiredSignatures <= _authorities.length);
         requiredSignatures = _requiredSignatures;
-        
+
         for (uint i = 0; i < _authorities.length; i++) {
             authorities[_authorities[i]] = true;
         }
-        
+
         estimatedGasCostOfWithdraw = _estimatedGasCostOfWithdraw;
     }
 
@@ -551,7 +551,7 @@ contract ForeignBridge is BridgeDeploymentAddressStorage,
 
         // TODO: this may cause troubles if requiredSignatures len is changed
         if (signed == requiredSignatures) {
-            CollectedSignatures(msg.sender, hash);
+            CollectedSignatures(msg.sender, hash, signed);
         }
     }
 

@@ -26,6 +26,9 @@ error_chain! {
 	errors {
 	    ShutdownRequested
 		InsufficientFunds
+		NoRequiredSignaturesChanged {
+		   description("No RequiredSignaturesChanged has been observed")
+		}
 		// api timeout
 		Timeout(request: &'static str) {
 			description("Request timeout"),

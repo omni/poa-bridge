@@ -52,6 +52,7 @@ impl Config {
 			authorities: Authorities {
 				#[cfg(feature = "deploy")]
 				accounts: config.authorities.accounts,
+				#[cfg(feature = "deploy")]
 				required_signatures: config.authorities.required_signatures,
 			},
 			txs: config.transactions.map(Transactions::from_load_struct).unwrap_or_default(),
@@ -220,6 +221,7 @@ pub struct ContractConfig {
 pub struct Authorities {
 	#[cfg(feature = "deploy")]
 	pub accounts: Vec<Address>,
+	#[cfg(feature = "deploy")]
 	pub required_signatures: u32,
 }
 
@@ -325,6 +327,7 @@ mod load {
 		#[cfg(feature = "deploy")]
 		#[serde(default)]
 		pub accounts: Vec<Address>,
+		#[cfg(feature = "deploy")]
 		pub required_signatures: u32,
 	}
 }
@@ -403,7 +406,6 @@ required_signatures = 2
 				#[cfg(feature = "deploy")]
 				accounts: vec![
 				],
-				required_signatures: 2,
 			},
 			keystore: "/keys/".into(),
 		};
@@ -466,7 +468,6 @@ required_signatures = 2
 				#[cfg(feature = "deploy")]
 				accounts: vec![
 				],
-				required_signatures: 2,
 			},
 			keystore: "/keys/".into(),
 		};

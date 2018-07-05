@@ -19,9 +19,9 @@ use super::BridgeChecked;
 use itertools::Itertools;
 
 /// returns a filter for `ForeignBridge.CollectedSignatures` events
-fn collected_signatures_filter(foreign: &foreign::ForeignBridge, address: Address) -> FilterBuilder {
+fn collected_signatures_filter<I: IntoIterator<Item = Address>>(foreign: &foreign::ForeignBridge, addresses: I) -> FilterBuilder {
 	let filter = foreign.events().collected_signatures().create_filter();
-	web3_filter(filter, address)
+	web3_filter(filter, addresses)
 }
 
 /// payloads for calls to `ForeignBridge.signature` and `ForeignBridge.message`
@@ -34,7 +34,7 @@ struct RelayAssignment {
 	message_payload: Bytes,
 }
 
-fn signatures_payload(foreign: &foreign::ForeignBridge, required_signatures: u32, my_address: Address, log: Log) -> error::Result<Option<RelayAssignment>> {
+fn signatures_payload(foreign: &foreign::ForeignBridge, my_address: Address, log: Log) -> error::Result<Option<RelayAssignment>> {
 	// convert web3::Log to ethabi::RawLog since ethabi events can
 	// only be parsed from the latter
 	let raw_log = RawLog {
@@ -48,7 +48,9 @@ fn signatures_payload(foreign: &foreign::ForeignBridge, required_signatures: u32
 		// someone else will relay this transaction to home.
 		return Ok(None);
 	}
-	let signature_payloads = (0..required_signatures).into_iter()
+
+	let required_signatures: U256 = (&foreign.functions().message().input(collected_signatures.number_of_collected_signatures)[4..]).into();
+	let signature_payloads = (0..required_signatures.low_u32()).into_iter()
 		.map(|index| foreign.functions().signature().input(collected_signatures.message_hash, index))
 		.map(Into::into)
 		.collect();
@@ -83,7 +85,7 @@ pub fn create_withdraw_relay<T: Transport + Clone>(app: Arc<App<T>>, init: &Data
 		request_timeout: app.config.foreign.request_timeout,
 		poll_interval: app.config.foreign.poll_interval,
 		confirmations: app.config.foreign.required_confirmations,
-		filter: collected_signatures_filter(&app.foreign_bridge, init.foreign_contract_address),
+		filter: collected_signatures_filter(&app.foreign_bridge, vec![init.foreign_contract_address]),
 	};
 
 	WithdrawRelay {
@@ -120,7 +122,13 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 		let contract = self.home_contract.clone();
 		let home = &self.app.config.home;
 		let t = &self.app.connections.home;
+		let foreign = &self.app.connections.foreign;
 		let chain_id = self.home_chain_id;
+		let foreign_bridge = &self.app.foreign_bridge;
+		let foreign_account = self.app.config.foreign.account;
+		let timer = &self.app.timer;
+		let foreign_contract = self.foreign_contract;
+		let foreign_request_timeout = self.app.config.foreign.request_timeout;
 
 		loop {
 			let next_state = match self.state {
@@ -129,14 +137,10 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 					info!("got {} new signed withdraws to relay", item.logs.len());
 					let assignments = item.logs
 						.into_iter()
-						.map(|log| {
-							 info!("collected signature is ready for relay: tx hash: {}", log.transaction_hash.unwrap());
-							 signatures_payload(
-								&self.app.foreign_bridge,
-								self.app.config.authorities.required_signatures,
-								self.app.config.foreign.account,
-								log)
-						})
+						.map(|log| signatures_payload(
+								foreign_bridge,
+								foreign_account,
+								 log))
 						.collect::<error::Result<Vec<_>>>()?;
 
 					let (signatures, messages): (Vec<_>, Vec<_>) = assignments.into_iter()
@@ -146,9 +150,9 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 
 					let message_calls = messages.into_iter()
 						.map(|payload| {
-							self.app.timer.timeout(
-								api::call(&self.app.connections.foreign, self.foreign_contract.clone(), payload),
-								self.app.config.foreign.request_timeout)
+							timer.timeout(
+								api::call(foreign, foreign_contract.clone(), payload),
+								foreign_request_timeout)
 						})
 						.collect::<Vec<_>>();
 
@@ -156,9 +160,9 @@ impl<T: Transport> Stream for WithdrawRelay<T> {
 						.map(|payloads| {
 							payloads.into_iter()
 								.map(|payload| {
-									self.app.timer.timeout(
-										api::call(&self.app.connections.foreign, self.foreign_contract.clone(), payload),
-										self.app.config.foreign.request_timeout)
+									timer.timeout(
+										api::call(foreign, foreign_contract.clone(), payload),
+										foreign_request_timeout)
 								})
 								.collect::<Vec<_>>()
 						})
@@ -271,11 +275,11 @@ mod tests {
 		let foreign = foreign::ForeignBridge::default();
 		let my_address = "aff3454fce5edbc8cca8697c15331677e6ebcccc".into();
 
-		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f0".from_hex().unwrap();
+		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000002".from_hex().unwrap();
 
 		let log = Log {
 			data: data.into(),
-			topics: vec!["eb043d149eedb81369bec43d4c3a3a53087debc88d2525f13bfaa3eecda28b5c".into()],
+			topics: vec!["415557404d88a0c0b8e3b16967cafffc511213fd9c465c16832ee17ed57d7237".into()],
 			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
 			address: Address::zero(),
 			block_hash: None,
@@ -287,7 +291,7 @@ mod tests {
 			removed: None,
 		};
 
-		let assignment = signatures_payload(&foreign, 2, my_address, log).unwrap().unwrap();
+		let assignment = signatures_payload(&foreign, my_address, log).unwrap().unwrap();
 		let expected_message: Bytes = "490a32c600000000000000000000000000000000000000000000000000000000000000f0".from_hex().unwrap().into();
 		let expected_signatures: Vec<Bytes> = vec![
 			"1812d99600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000000".from_hex().unwrap().into(),
@@ -302,11 +306,11 @@ mod tests {
 		let foreign = foreign::ForeignBridge::default();
 		let my_address = "aff3454fce5edbc8cca8697c15331677e6ebcccd".into();
 
-		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f0".from_hex().unwrap();
+		let data = "000000000000000000000000aff3454fce5edbc8cca8697c15331677e6ebcccc00000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000002".from_hex().unwrap();
 
 		let log = Log {
 			data: data.into(),
-			topics: vec!["eb043d149eedb81369bec43d4c3a3a53087debc88d2525f13bfaa3eecda28b5c".into()],
+			topics: vec!["415557404d88a0c0b8e3b16967cafffc511213fd9c465c16832ee17ed57d7237".into()],
 			transaction_hash: Some("884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364".into()),
 			address: Address::zero(),
 			block_hash: None,
@@ -318,7 +322,7 @@ mod tests {
 			removed: None,
 		};
 
-		let assignment = signatures_payload(&foreign, 2, my_address, log).unwrap();
+		let assignment = signatures_payload(&foreign, my_address, log).unwrap();
 		assert_eq!(None, assignment);
 	}
 }
