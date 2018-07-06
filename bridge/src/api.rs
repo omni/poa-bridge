@@ -142,6 +142,24 @@ pub fn call<T: Transport>(transport: T, address: Address, payload: Bytes) -> Api
 	}
 }
 
+/// Imperative wrapper for web3 function.
+pub fn estimate_gas<T: Transport>(transport: T, sender: Option<Address>, address: Address, payload: Bytes) -> ApiCall<U256, T::Out> {
+	let future = api::Eth::new(transport).estimate_gas(CallRequest {
+		from: sender,
+		to: address,
+		gas: None,
+		gas_price: None,
+		value: None,
+		data: Some(payload),
+	}, None);
+
+	ApiCall {
+		future,
+		message: "eth_estimateGas",
+	}
+}
+
+
 /// Returns a eth_sign-compatible hash of data to sign.
 /// The data is prepended with special message to prevent
 /// chosen-plaintext attacks.

@@ -21,8 +21,3 @@ default_gas_price = 10_000_000_000 # 10 GWEI
 
 [authorities]
 required_signatures = 1
-
-[transactions]
-home_deploy = { gas = 1000000 }
-foreign_deploy = { gas = 3000000 }
-deposit_relay = { gas = 100000 }

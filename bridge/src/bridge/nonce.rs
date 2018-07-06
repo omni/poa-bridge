@@ -2,7 +2,7 @@ use futures::{Future, Async, Poll, future::{MapErr}};
 use tokio_timer::Timeout;
 use web3::{self, Transport};
 use web3::types::{U256, H256, Bytes};
-use ethcore_transaction::Transaction;
+use ethcore_transaction::{Transaction, Action};
 use api::{self, ApiCall};
 use error::{Error, ErrorKind};
 use config::Node;
@@ -23,6 +23,12 @@ enum NonceCheckState<T: Transport, S: TransactionSender> {
 	},
 	/// Nonce available
 	Nonce(U256),
+	/// Request gas estimation
+	GasEstimateRequest {
+		future: Timeout<ApiCall<U256, T::Out>>,
+	},
+	/// Send transaction
+	SendTransaction,
 	/// Transaction is in progress
 	TransactionRequest {
 		future: Timeout<S::Future>,
@@ -90,6 +96,35 @@ impl<T: Transport, S: TransactionSender> Future for NonceCheck<T, S> {
 				},
 				NonceCheckState::Nonce(mut nonce) => {
 					self.transaction.nonce = nonce;
+					match self.transaction.action {
+						Action::Call(address) if self.transaction.gas.is_zero() => {
+							NonceCheckState::GasEstimateRequest {
+								future: self.app.timer.timeout(api::estimate_gas(&self.transport, Some(self.node.account), address, Bytes(self.transaction.data.clone())), self.node.request_timeout)
+							}
+						},
+						_ => NonceCheckState::SendTransaction,
+					}
+				},
+				NonceCheckState::GasEstimateRequest { ref mut future } => {
+					match future.poll() {
+						Ok(Async::Ready(gas)) => {
+							self.transaction.gas = gas;
+							NonceCheckState::SendTransaction
+						},
+						Ok(Async::NotReady) => return Ok(Async::NotReady),
+						Err(e) => {
+							match e {
+								Error(ErrorKind::Web3(web3::error::Error(web3::error::ErrorKind::Rpc(err), _)), _) => {
+										let hash = self.transaction.hash(Some(self.chain_id));
+										info!("{} fails to pass eth.estimateGas on {}, skipping (error: {:?})", hash, self.node.rpc_host, err);
+										return Ok(Async::Ready(self.sender.ignore(hash)))
+								},
+								e => return Err(From::from(e)),
+							}
+						},
+					}
+				},
+				NonceCheckState::SendTransaction => {
 					match prepare_raw_transaction(self.transaction.clone(), &self.app, &self.node, self.chain_id) {
 						Ok(tx) => NonceCheckState::TransactionRequest {
 							future: self.app.timer.timeout(self.sender.send(tx), self.node.request_timeout)
