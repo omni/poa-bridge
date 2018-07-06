@@ -136,8 +136,14 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	let mut event_loop = Core::new().unwrap();
 	let handle = event_loop.handle();
 
-	info!(target: "bridge", "Home rpc host {}", config.clone().home.rpc_host);
-	info!(target: "bridge", "Foreign rpc host {}", config.clone().foreign.rpc_host);
+	info!(target: "bridge", "Home RPC url (primary) {}",
+		config.home.primary_rpc);
+	info!(target: "bridge", "Home RPC url (failover) {:?}",
+		config.home.failover_rpc.as_ref().map(|url| url.to_string()));
+	info!(target: "bridge", "Foreign RPC url (primary) {}",
+		config.foreign.primary_rpc);
+	info!(target: "bridge", "Foreign RPC url (failover) {:?}",
+		config.foreign.failover_rpc.as_ref().map(|url| url.to_string()));
 
 	info!(target: "bridge", "Establishing connection:");
 
@@ -151,6 +157,9 @@ fn execute<S, I>(command: I, running: Arc<AtomicBool>) -> Result<String, UserFac
 	};
 
 	let app = Arc::new(app);
+
+	info!(target: "bridge", "Connected to home RPC url: {}", app.connections.home_url);
+	info!(target: "bridge", "Connected to foreign RPC url: {}", app.connections.foreign_url);
 
 	info!(target: "bridge", "Acquiring home & foreign chain ids");
 	let home_chain_id = event_loop.run(create_chain_id_retrieval(app.clone(), app.connections.home.clone(), app.config.home.clone())).expect("can't retrieve home chain_id");

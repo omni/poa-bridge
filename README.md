@@ -30,7 +30,7 @@ and they can convert them back as well.
 
 ![withdraw](./res/withdraw.png)
 
-### How to build 
+### How to build
 
 Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
 
@@ -83,16 +83,20 @@ keystore = "/path/to/keystore"
 
 [home]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-rpc_host = "http://localhost"
-rpc_port = 8545
+primary_rpc_host = "http://localhost"
+primary_rpc_port = 8545
+failover_rpc_host = "http://localhost"
+failover_rpc_port = 8546
 required_confirmations = 0
 password = "home_password.txt"
 default_gas_price = 1_000_000_000 # 1 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
-rpc_host = "http://localhost"
-rpc_port = 9545
+primary_rpc_host = "http://localhost"
+primary_rpc_port = 9545
+failover_rpc_host = "http://localhost"
+failover_rpc_port = 9546
 required_confirmations = 0
 gas_price_oracle_url = "https://gasprice.poa.network"
 gas_price_speed = "instant"
@@ -110,13 +114,15 @@ withdraw_confirm = { gas = 3000000 }
 
 #### Options
 
-- `keystore` - path to a keystore directory with JSON keys  
+- `keystore` - path to a keystore directory with JSON keys
 
 #### home/foreign options
 
 - `home/foreign.account` - authority address on the home (**required**)
-- `home/foreign.rpc_host` - RPC host (**required**)
-- `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
+- `home/foreign.primary_rpc_host` - Primary RPC host (**required**)
+- `home/foreign.primary_rpc_port` - Primary RPC port (**defaults to 8545**)
+- `home/foreign.failover_rpc_host` - Failover RPC host used in the event the primary RPC host is not available. Must be specified if `failover_rpc_port` is set.
+- `home/foreign.failover_rpc_port` - Failover RPC port used in the event the primary RPC host is not available. (**defaults to 8545** if `failover_rpc_host` is set.)
 - `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
 - `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
