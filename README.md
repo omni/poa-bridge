@@ -30,11 +30,11 @@ and they can convert them back as well.
 
 ![withdraw](./res/withdraw.png)
 
-### How to build 
+### How to build
 
-Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
-
-Requires `solc` to be in `$PATH`: [installation instructions.](https://solidity.readthedocs.io/en/develop/installing-solidity.html)
+* Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
+* Requires `solc` to be in `$PATH`: [installation instructions.](https://solidity.readthedocs.io/en/develop/installing-solidity.html)
+* Ensure libudev is installed (Ubuntu/Debian: `sudo apt-get install libudev-dev`).
 
 Assuming you've cloned the bridge (`git clone git@github.com:poanetwork/poa-bridge.git`), run
 
@@ -110,7 +110,7 @@ withdraw_confirm = { gas = 3000000 }
 
 #### Options
 
-- `keystore` - path to a keystore directory with JSON keys  
+- `keystore` - path to a keystore directory with JSON keys
 
 #### home/foreign options
 
