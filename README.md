@@ -115,7 +115,6 @@ default_gas_price = 10_000_000_000 # 10 GWEI
 password = "foreign_password.txt"
 
 [authorities]
-required_signatures = 2
 
 [transactions]
 deposit_relay = { gas = 3000000 }
@@ -141,10 +140,6 @@ withdraw_confirm = { gas = 3000000 }
 - `home/foreign.gas_price_speed` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
 - `home/foreign.default_gas_price` - the default gas price (in WEI) used in transactions with the home or foreign nodes. The `default_gas_price` is used when the Oracle cannot be reached. The default value is `15_000_000_000` WEI (ie. 15 GWEI).
 - `home/foreign.concurrent_http_requests` - the number of concurrent HTTP requests allowed in-flight (default: **64**)
-
-#### authorities options
-
-- `authorities.account` - all authorities (**required**)
 
 #### transaction options
 

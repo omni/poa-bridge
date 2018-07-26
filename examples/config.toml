@@ -18,9 +18,7 @@ gas_price_oracle_url = "https://gasprice.poa.network"
 gas_price_speed = "instant"
 default_gas_price = 10_000_000_000 # 10 GWEI
 
-
 [authorities]
-required_signatures = 1
 
 [transactions]
 home_deploy = { gas = 1000000 }
