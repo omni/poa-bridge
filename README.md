@@ -30,6 +30,21 @@ and they can convert them back as well.
 
 ![withdraw](./res/withdraw.png)
 
+### Difference from Parity Bridge
+
+Although POA bridge initially was based on [Parity Brigde](https://github.com/paritytech/parity-bridge), eventually it
+was re-worked:
+  * support of a gas price oracle introduced;
+  * RPC is used instead of IPC;
+  * sending of bridge approvals enhanced as so performance increased drammatically;
+  * error handling improved to be compatible with Linux systemd faclity;
+  * bridge configuration parameters are being got from bridge contracts so they don't need to be synchronized among several bridge instances; 
+  * bridge contracts was segregated into [the separate project](https://github.com/poanetwork/poa-bridge-contracts) and their deployment
+    is independent from the Rust side of the bridge. Now bridge contracts:
+    * ERC20 is separated from the brdige contracts
+    * are upgradable and you don't need to re-configure bridge instances and DApps to use new version of contracts
+    * set of validators can be changed without necessity to re-deploy bridge contracts 
+
 ### How to build 
 
 Requires `rust` and `cargo`: [installation instructions.](https://www.rust-lang.org/en-US/install.html)
