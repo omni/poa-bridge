@@ -98,29 +98,33 @@ keystore = "/path/to/keystore"
 
 [home]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+password = "home_password.txt"
 rpc_host = "http://localhost"
 rpc_port = 8545
 required_confirmations = 0
-password = "home_password.txt"
+poll_interval = 5
+request_timeout = 60
 default_gas_price = 1_000_000_000 # 1 GWEI
 
 [foreign]
 account = "0x006e27b6a72e1f34c626762f3c4761547aff1421"
+password = "foreign_password.txt"
 rpc_host = "http://localhost"
 rpc_port = 9545
-required_confirmations = 0
+required_confirmations = 8
+poll_interval = 15
+request_timeout = 60
 gas_price_oracle_url = "https://gasprice.poa.network"
 gas_price_speed = "instant"
+gas_price_timeout = 10
 default_gas_price = 10_000_000_000 # 10 GWEI
-password = "foreign_password.txt"
 
 [authorities]
-required_signatures = 2
 
 [transactions]
-deposit_relay = { gas = 3000000 }
-withdraw_relay = { gas = 3000000 }
-withdraw_confirm = { gas = 3000000 }
+deposit_relay = { gas = 300000 }
+withdraw_relay = { gas = 300000 }
+withdraw_confirm = { gas = 300000 }
 ```
 
 #### Options
@@ -130,21 +134,17 @@ withdraw_confirm = { gas = 3000000 }
 #### home/foreign options
 
 - `home/foreign.account` - authority address on the home (**required**)
+- `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
 - `home/foreign.rpc_host` - RPC host (**required**)
 - `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
 - `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
 - `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
-- `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
 - `home/foreign.gas_price_oracle_url` - the URL used to query the current gas-price for the home and foreign nodes, this service is known as the gas-price Oracle. This config option defaults to `None` if not supplied in the User's config TOML file. If this config value is `None`, no Oracle gas-price querying will occur, resulting in the config value for `home/foreign.default_gas_price` being used for all gas-prices.
 - `home/foreign.gas_price_timeout` - the number of seconds to wait for an HTTP response from the gas price oracle before using the default gas price. Defaults to `10 seconds`.
 - `home/foreign.gas_price_speed` - retrieve the gas-price corresponding to this speed when querying from an Oracle. Defaults to `fast`. The available values are: "instant", "fast", "standard", and "slow".
 - `home/foreign.default_gas_price` - the default gas price (in WEI) used in transactions with the home or foreign nodes. The `default_gas_price` is used when the Oracle cannot be reached. The default value is `15_000_000_000` WEI (ie. 15 GWEI).
 - `home/foreign.concurrent_http_requests` - the number of concurrent HTTP requests allowed in-flight (default: **64**)
-
-#### authorities options
-
-- `authorities.account` - all authorities (**required**)
 
 #### transaction options
 
