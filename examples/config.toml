@@ -27,6 +27,6 @@ default_gas_price = 10_000_000_000 # 10 GWEI
 # Keep this section empty
 
 [transactions]
-home_deploy = { gas = 300000 }
-foreign_deploy = { gas = 300000 }
+withdraw_relay = { gas = 300000 }
+withdraw_confirm = { gas = 300000 }
 deposit_relay = { gas = 300000 }
