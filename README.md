@@ -32,7 +32,7 @@ and they can convert them back as well.
 
 ### Difference from Parity Bridge
 
-Although POA bridge initially was based on [Parity Brigde](https://github.com/paritytech/parity-bridge), eventually it
+Although POA bridge initially was based on [Parity Bridge](https://github.com/paritytech/parity-bridge), eventually it
 was re-worked:
   * support of a gas price oracle introduced;
   * RPC is used instead of IPC;
