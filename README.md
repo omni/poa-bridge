@@ -3,13 +3,14 @@
 [![Join the chat at https://gitter.im/poanetwork/poa-bridge](https://badges.gitter.im/poanetwork/poa-bridge.svg)](https://gitter.im/poanetwork/poa-bridge?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Waffle.io - Columns and their card count](https://badge.waffle.io/poanetwork/poa-bridge.svg?columns=all)](https://waffle.io/poanetwork/poa-bridge)
 
-This is software to be operated by *POA bridge validators* to faciliate proof-of-authority
-based briding of POA to tokens on an **another** Ethereum-based blockchain.
+**NOTE: This repository is not currently supported and is not used in production. Please see the Token Bridge repo at https://github.com/poanetwork/token-bridge for the current production version**
 
-The validators work with POA bridge contracts to convert ether on one chain into the same
-amount of ERC20 tokens on the other and back.
 
-This software works in conjunction with other projects:
+Software, written in Rust, used by *POA bridge validators* to faciliate proof-of-authority based bridging of POA native coins to tokens on **another** Ethereum-based blockchain.
+
+The validators work with the POA bridge contracts to convert ether on one chain into the same amount of ERC20 tokens on the other and back.
+
+This software was designed to work in conjunction with the following projects. Current compatability is unknown.
 
 * [POA Bridge UI](https://github.com/poanetwork/bridge-ui)
 * [POA Bridge Smart Contracts](https://github.com/poanetwork/poa-bridge-contracts)
@@ -32,18 +33,18 @@ and they can convert them back as well.
 
 ### Difference from Parity Bridge
 
-Although POA bridge initially was based on [Parity Brigde](https://github.com/paritytech/parity-bridge), eventually it
-was re-worked:
+Although the POA bridge was initially based on the [Parity Bridge](https://github.com/paritytech/parity-bridge), it
+was re-worked to include:
   * support of a gas price oracle introduced;
   * RPC is used instead of IPC;
-  * sending of bridge approvals enhanced as so performance increased drammatically;
-  * error handling improved to be compatible with Linux systemd faclity;
-  * bridge configuration parameters are being got from bridge contracts so they don't need to be synchronized among several bridge instances; 
-  * bridge contracts was segregated into [the separate project](https://github.com/poanetwork/poa-bridge-contracts) and their deployment
+  * sending of bridge approvals enhanced, increasing performance dramatically;
+  * error handling improved to be compatible with Linux systemd facility;
+  * bridge configuration parameters are fetched from bridge contracts so they don't need to be synchronized among several bridge instances; 
+  * bridge contracts were segregated into [the separate project](https://github.com/poanetwork/poa-bridge-contracts) and their deployment
     is independent from the Rust side of the bridge. Now bridge contracts:
-    * ERC20 is separated from the brdige contracts
-    * are upgradable and you don't need to re-configure bridge instances and DApps to use new version of contracts
-    * set of validators can be changed without necessity to re-deploy bridge contracts 
+    * are separate from ERC20 
+    * are upgradable; you don't need to re-configure bridge instances and DApps to use new version of contracts
+    * allow a set of validators to be changed without neeeding to re-deploy thebridge contracts 
 
 ### How to build 
 
@@ -70,7 +71,7 @@ bridge --config config.toml --database db.toml
 - `--database` - location of the database file.
 
 Bridge forces TLS for RPC connections by default. However, in some limited scenarios (like local testing),
-this might be undesirable. In this case, you can use `--allow-insecure-rpc-endpoints` option to allow non-TLS
+this might be undesirable. In this case, you can use the `--allow-insecure-rpc-endpoints` option to allow non-TLS
 endpoints to be used. Ensure, however, that this option is not going to be used in production.
 
 
@@ -137,7 +138,7 @@ withdraw_confirm = { gas = 300000 }
 - `home/foreign.password` - path to the file containing a password for the validator's account (to decrypt the key from the keystore)
 - `home/foreign.rpc_host` - RPC host (**required**)
 - `home/foreign.rpc_port` - RPC port (**defaults to 8545**)
-- `home/foreign.required_confirmations` - number of confirmation required to consider transaction final on home (default: **12**)
+- `home/foreign.required_confirmations` - number of confirmations required to consider transaction final on home (default: **12**)
 - `home/foreign.poll_interval` - specify how often home node should be polled for changes (in seconds, default: **1**)
 - `home/foreign.request_timeout` - specify request timeout (in seconds, default: **3600**)
 - `home/foreign.gas_price_oracle_url` - the URL used to query the current gas-price for the home and foreign nodes, this service is known as the gas-price Oracle. This config option defaults to `None` if not supplied in the User's config TOML file. If this config value is `None`, no Oracle gas-price querying will occur, resulting in the config value for `home/foreign.default_gas_price` being used for all gas-prices.
