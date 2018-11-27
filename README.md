@@ -20,7 +20,7 @@ This software was designed to work in conjunction with the following projects. C
 ### Functionality
 
 The bridge connects two chains (`home` and `foreign`). When a user deposits ether into the
-bridge contract contract on `home` they get the same amount of ERC20 tokens on `foreign`,
+bridge contract on `home` they get the same amount of ERC20 tokens on `foreign`,
 and they can convert them back as well.
 
 #### Deposit
